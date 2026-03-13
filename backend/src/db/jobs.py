@@ -230,18 +230,21 @@ def count_job_bids(job_id: str) -> int:
 
 def match_jobs_by_tags(tags: List[str]) -> List[str]:
     """Find job IDs matching the given tags."""
+    if not tags:
+        return []
+
     conn = get_connection()
     cursor = conn.cursor()
 
-    placeholders = ",".join(["?" for _ in tags])
+    # Build OR conditions for each tag to check if it exists in required_tags
+    conditions = " OR ".join(["required_tags LIKE ?" for _ in tags])
+    params = [f"%{tag}%" for tag in tags]
+
     cursor.execute(f"""
         SELECT job_id FROM jobs
         WHERE status = 'OPEN'
-        AND (
-            {placeholders}
-            IN (SELECT value FROM json_each('["' || replace(required_tags, ',', '","') || '"]'))
-        )
-    """, tags)
+        AND ({conditions})
+    """, params)
 
     job_ids = [row["job_id"] for row in cursor.fetchall()]
     conn.close()

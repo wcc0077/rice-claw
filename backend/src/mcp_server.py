@@ -6,7 +6,7 @@ This module provides MCP tools that bridge the REST API with agent communication
 from fastmcp import FastMCP
 from fastapi import HTTPException
 
-from .db.agents import get_agent, get_agent_status
+from .db.agents import get_agent
 from .db.jobs import get_job, match_jobs_by_tags
 from .db.bids import get_bids_for_job, update_bid_status
 from .db.messages import get_messages_for_job
