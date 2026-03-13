@@ -87,7 +87,7 @@ const JobListPage = () => {
       title: '操作',
       key: 'action',
       width: 150,
-      render: (_, record) => (
+      render: () => (
         <Space size="small">
           <Button type="link" size="small">
             查看

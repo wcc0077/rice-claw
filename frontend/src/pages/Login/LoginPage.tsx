@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Card, Typography, Form, Input, Button, message } from 'antd'
+import { Typography, Form, Input, Button, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { ThunderboltOutlined } from '@ant-design/icons'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false)
@@ -11,8 +12,6 @@ const LoginPage = () => {
   const onFinish = async () => {
     setLoading(true)
     try {
-      // Placeholder login
-      // In real app, would call auth API
       localStorage.setItem('auth_token', 'dummy_token')
       message.success('登录成功')
       navigate('/dashboard')
@@ -24,52 +23,96 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <Card className="w-full max-w-md shadow-lg">
-        <div className="text-center mb-6">
-          <Title level={2} className="text-blue-600">虾虾众包管理后台</Title>
-          <Typography.Text type="secondary">请输入管理员账号登录</Typography.Text>
-        </div>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#0f0a1e] to-[#1a1a3e]">
+        {/* Floating Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-pink-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
 
-        <Form
-          name="login"
-          initialValues={{ remember: true }}
-          onFinish={onFinish}
-          layout="vertical"
-        >
-          <Form.Item
-            name="username"
-            rules={[{ required: true, message: '请输入用户名' }]}
+        {/* Grid Pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 212, 255, 0.5) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 212, 255, 0.5) 1px, transparent 1px)`,
+            backgroundSize: '50px 50px'
+          }}
+        />
+      </div>
+
+      {/* Login Card */}
+      <div className="relative z-10 w-full max-w-md px-4">
+        <div className="glass-card p-8">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 mb-4">
+              <ThunderboltOutlined className="text-3xl text-cyan-400" />
+            </div>
+            <Title level={2} className="text-3xl font-bold text-gradient mb-2">
+              虾虾众包
+            </Title>
+            <Text className="text-slate-400">
+              多智能体协作平台管理后台
+            </Text>
+          </div>
+
+          <Form
+            name="login"
+            onFinish={onFinish}
+            layout="vertical"
+            className="space-y-4"
           >
-            <Input placeholder="用户名" size="large" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: '请输入密码' }]}
-          >
-            <Input.Password placeholder="密码" size="large" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              block
-              size="large"
+            <Form.Item
+              name="username"
+              rules={[{ required: true, message: '请输入用户名' }]}
             >
-              登录
-            </Button>
-          </Form.Item>
-        </Form>
+              <Input
+                placeholder="用户名"
+                size="large"
+                className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20"
+              />
+            </Form.Item>
 
-        <div className="text-center mt-4">
-          <Typography.Text type="secondary" className="text-sm">
-            默认账号: admin / admin123
-          </Typography.Text>
+            <Form.Item
+              name="password"
+              rules={[{ required: true, message: '请输入密码' }]}
+            >
+              <Input.Password
+                placeholder="密码"
+                size="large"
+                className="h-12 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20"
+              />
+            </Form.Item>
+
+            <Form.Item className="pt-2">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                block
+                size="large"
+                className="h-12 text-base font-medium bg-gradient-to-r from-cyan-500 to-purple-500 border-0 hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,212,255,0.4)] transition-all duration-300"
+              >
+                登录
+              </Button>
+            </Form.Item>
+          </Form>
+
+          <div className="text-center mt-6 pt-6 border-t border-slate-700/50">
+            <Text className="text-xs text-slate-500">
+              默认账号: <span className="text-cyan-400">admin</span> / <span className="text-purple-400">admin123</span>
+            </Text>
+          </div>
         </div>
-      </Card>
+
+        {/* Decorative Elements */}
+        <div className="absolute -top-4 -left-4 w-8 h-8 border-l-2 border-t-2 border-cyan-500/30 rounded-tl-lg" />
+        <div className="absolute -top-4 -right-4 w-8 h-8 border-r-2 border-t-2 border-cyan-500/30 rounded-tr-lg" />
+        <div className="absolute -bottom-4 -left-4 w-8 h-8 border-l-2 border-b-2 border-cyan-500/30 rounded-bl-lg" />
+        <div className="absolute -bottom-4 -right-4 w-8 h-8 border-r-2 border-b-2 border-cyan-500/30 rounded-br-lg" />
+      </div>
     </div>
   )
 }

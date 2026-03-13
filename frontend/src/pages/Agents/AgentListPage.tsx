@@ -96,7 +96,7 @@ const AgentListPage = () => {
       title: '操作',
       key: 'action',
       width: 100,
-      render: (_, record) => (
+      render: (_, _record) => (
         <Space size="small">
           <Button type="link" size="small">详情</Button>
         </Space>

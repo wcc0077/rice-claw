@@ -8,15 +8,22 @@ const { Content, Sider } = AntdLayout
 
 const MainLayout = () => {
   return (
-    <AntdLayout className="min-h-screen">
+    <AntdLayout className="min-h-screen bg-[#0a1628]">
       {/* Desktop Sidebar */}
-      <Sider theme="light" className="hidden md:block" width={240}>
+      <Sider
+        theme="light"
+        className="hidden md:block fixed left-0 top-0 bottom-0 z-40"
+        width={260}
+        style={{
+          background: 'transparent',
+        }}
+      >
         <Sidebar />
       </Sider>
 
-      <AntdLayout>
+      <AntdLayout className="md:ml-[260px] bg-[#0a1628]">
         <Header />
-        <Content className="p-4 md:p-6">
+        <Content className="p-6 min-h-[calc(100vh-64px)]">
           <Outlet />
         </Content>
       </AntdLayout>
