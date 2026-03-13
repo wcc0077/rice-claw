@@ -1,9 +1,11 @@
 """Job management endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 
-from ..db.jobs import create_job, get_job, list_jobs, update_job, delete_job
-from ..db.agents import get_agent
+from ..db.database import get_db
+from ..db import jobs as job_dal
+from ..db import agents as agent_dal
 from ..models.schemas import (
     JobCreate, JobUpdate, JobResponse, JobListResponse
 )
@@ -12,13 +14,16 @@ router = APIRouter()
 
 
 @router.post("", response_model=JobResponse)
-async def create_job_endpoint(request: JobCreate):
+async def create_job_endpoint(
+    request: JobCreate,
+    db: Session = Depends(get_db)
+):
     """Publish a new job."""
     # Verify employer exists
-    employer = get_agent(request.employer_id)
+    employer = agent_dal.get_agent(db, request.employer_id)
     if not employer:
         raise HTTPException(status_code=400, detail=f"Employer {request.employer_id} not found")
-    if employer["agent_type"] != "employer":
+    if employer.agent_type != "employer":
         raise HTTPException(status_code=400, detail=f"Agent {request.employer_id} is not an employer")
 
     try:
@@ -27,9 +32,11 @@ async def create_job_endpoint(request: JobCreate):
         job_data["budget_max"] = request.budget.max if request.budget else None
         job_data["deadline"] = request.deadline.isoformat() if request.deadline else None
 
-        job = create_job(job_data)
+        job = job_dal.create_job(db, job_data)
         if job:
-            return JobResponse(**job)
+            result = job.to_dict()
+            result["bid_count"] = 0
+            return JobResponse(**result)
         raise HTTPException(status_code=500, detail="Failed to create job")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -43,6 +50,7 @@ async def list_jobs_endpoint(
     tag: str | None = None,
     page: int = 1,
     limit: int = 20,
+    db: Session = Depends(get_db)
 ):
     """List jobs with filtering."""
     if page < 1:
@@ -50,23 +58,33 @@ async def list_jobs_endpoint(
     if limit > 100:
         limit = 100
 
-    result = list_jobs(status=status, tag=tag, page=page, limit=limit)
+    result = job_dal.list_jobs(db, status=status, tag=tag, page=page, limit=limit)
     return JobListResponse(**result)
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-async def get_job_endpoint(job_id: str):
+async def get_job_endpoint(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Get job details."""
-    job = get_job(job_id)
+    job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-    return JobResponse(**job)
+
+    result = job.to_dict()
+    result["bid_count"] = job_dal.count_job_bids(db, job_id)
+    return JobResponse(**result)
 
 
 @router.put("/{job_id}", response_model=JobResponse)
-async def update_job_endpoint(job_id: str, request: JobUpdate):
+async def update_job_endpoint(
+    job_id: str,
+    request: JobUpdate,
+    db: Session = Depends(get_db)
+):
     """Update job status."""
-    job = get_job(job_id)
+    job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
@@ -77,22 +95,30 @@ async def update_job_endpoint(job_id: str, request: JobUpdate):
         updates["selected_worker_ids"] = request.selected_worker_ids
 
     if not updates:
-        return JobResponse(**job)
+        result = job.to_dict()
+        result["bid_count"] = job_dal.count_job_bids(db, job_id)
+        return JobResponse(**result)
 
-    updated_job = update_job(job_id, updates)
+    updated_job = job_dal.update_job(db, job_id, updates)
     if not updated_job:
         raise HTTPException(status_code=500, detail="Failed to update job")
-    return JobResponse(**updated_job)
+
+    result = updated_job.to_dict()
+    result["bid_count"] = job_dal.count_job_bids(db, job_id)
+    return JobResponse(**result)
 
 
 @router.delete("/{job_id}")
-async def delete_job_endpoint(job_id: str):
+async def delete_job_endpoint(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Delete a job."""
-    job = get_job(job_id)
+    job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-    success = delete_job(job_id)
+    success = job_dal.delete_job(db, job_id)
     if success:
         return {"message": f"Job {job_id} deleted successfully"}
     raise HTTPException(status_code=500, detail="Failed to delete job")

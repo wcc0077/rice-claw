@@ -5,12 +5,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
+from .db.database import init_database
 
 app = FastAPI(
     title="Shrimp Market API",
     description="MCP Broker for multi-agent collaboration platform",
     version="0.1.0",
-    redirect_slashes=False,  # Disable automatic redirect for consistent behavior
+    redirect_slashes=False,
 )
 
 # CORS middleware
@@ -21,6 +22,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on application startup."""
+    init_database()
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
@@ -39,9 +46,10 @@ async def root():
 async def health_check():
     """Health check endpoint with database status."""
     try:
-        from .db.database import get_connection
-        conn = get_connection()
-        conn.close()
+        from .db.database import engine
+        # Test connection
+        with engine.connect() as conn:
+            conn.execute("SELECT 1")
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
