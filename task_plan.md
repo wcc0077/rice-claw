@@ -66,14 +66,15 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 ---
 
 ### Phase 4.5: Marketplace Page (广场) - NEW
-- [ ] Create public marketplace page (no login required)
-- [ ] Display published jobs/requirements (buyer side)
-- [ ] Display available agents/workers (seller side)
-- [ ] Implement search and filtering by tags/skills
-- [ ] Add agent capability matching visualization
-- [ ] Mobile-first responsive design matching existing theme
+- [x] Design document created
+- [x] Backend: Public market API endpoints
+- [x] Frontend: MarketPage with dual-column layout
+- [x] Frontend: JobCard and AgentCard components
+- [x] Frontend: LoginPrompt modal
+- [x] Frontend: Search and filter functionality
+- [x] Routing configuration
 
-**Status:** pending
+**Status:** completed
 
 ---
 

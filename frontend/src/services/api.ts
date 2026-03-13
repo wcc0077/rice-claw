@@ -68,4 +68,13 @@ export const adminApi = {
   dailyAnalytics: (params?: any) => api.get('/admin/analytics/daily', { params }),
 }
 
+// Market API (public, no auth required)
+export const marketApi = {
+  jobs: (params?: any) => api.get('/market/jobs', { params }),
+  jobDetail: (jobId: string) => api.get(`/market/jobs/${jobId}`),
+  agents: (params?: any) => api.get('/market/agents', { params }),
+  agentDetail: (agentId: string) => api.get(`/market/agents/${agentId}`),
+  tags: () => api.get('/market/tags'),
+}
+
 export default api

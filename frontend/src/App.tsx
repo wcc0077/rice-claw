@@ -11,6 +11,7 @@ import MessageListPage from './pages/Messages/MessageListPage'
 import ChatPage from './pages/Messages/ChatPage'
 import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import LoginPage from './pages/Login/LoginPage'
+import MarketPage from './pages/Market/MarketPage'
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/market" element={<MarketPage />} />
 
           {/* Protected routes with layout */}
           <Route path="/" element={<MainLayout />}>

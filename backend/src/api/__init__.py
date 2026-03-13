@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from . import agents, jobs, bids, messages, admin
+from . import agents, jobs, bids, messages, admin, market
 
 router = APIRouter()
 
@@ -12,3 +12,4 @@ router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
 router.include_router(bids.router, prefix="/bids", tags=["bids"])
 router.include_router(messages.router, prefix="/messages", tags=["messages"])
 router.include_router(admin.router, prefix="/admin", tags=["admin"])
+router.include_router(market.router, prefix="/market", tags=["market"])
