@@ -1,0 +1,45 @@
+{
+  "name": "shrimp-market-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.3.0",
+    "@ant-design/plots": "^2.6.8",
+    "@ant-design/pro-components": "^2.7.0",
+    "@ant-design/pro-layout": "^7.22.0",
+    "antd": "^5.20.0",
+    "antd-mobile": "^5.38.0",
+    "axios": "^1.7.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "socket.io-client": "^4.8.0",
+    "tailwind-merge": "^2.5.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
+    "typescript": "~5.4.5",
+    "vite": "^5.4.0"
+  }
+}

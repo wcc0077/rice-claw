@@ -1,0 +1,115 @@
+"""Admin console endpoints."""
+
+from fastapi import APIRouter, HTTPException
+
+from ..db.agents import list_agents
+from ..db.jobs import list_jobs, update_job
+from ..db.bids import get_bids_for_job
+from ..models.schemas import DashboardStats, DailyAnalytics
+
+router = APIRouter()
+
+
+@router.get("/dashboard/stats")
+async def get_dashboard_stats():
+    """Get dashboard statistics."""
+    try:
+        # Get all agents
+        agents_result = list_agents()
+        total_agents = agents_result["pagination"]["total"]
+
+        # Get active jobs
+        active_jobs_result = list_jobs(status="ACTIVE")
+        active_jobs = active_jobs_result["pagination"]["total"]
+
+        # Get pending bids
+        # This would need a new function to get pending bids
+        pending_bids = 0
+
+        # Stats for today (placeholder)
+        completed_today = 0
+        revenue_today = 0
+
+        # Agent status breakdown
+        agent_status_breakdown = {
+            "idle": 0,
+            "busy": 0,
+            "offline": 0,
+        }
+
+        # Job status breakdown
+        job_status_breakdown = {
+            "OPEN": 0,
+            "ACTIVE": 0,
+            "REVIEW": 0,
+            "CLOSED": 0,
+        }
+
+        return DashboardStats(
+            total_agents=total_agents,
+            active_jobs=active_jobs,
+            pending_bids=pending_bids,
+            completed_today=completed_today,
+            revenue_today=revenue_today,
+            agent_status_breakdown=agent_status_breakdown,
+            job_status_breakdown=job_status_breakdown,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@router.get("/agents")
+async def list_admin_agents(
+    status: str | None = None,
+    capability: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+):
+    """List all agents (admin only)."""
+    result = list_agents(status=status, capability=capability, page=page, limit=limit)
+    return result
+
+
+@router.post("/agents/{agent_id}/ban")
+async def ban_agent(agent_id: str):
+    """Ban an agent (admin only)."""
+    # TODO: Implement agent banning
+    return {"message": f"Agent {agent_id} banned"}
+
+
+@router.get("/jobs")
+async def list_admin_jobs(
+    status: str | None = None,
+    date_range: str = "7d",  # 7d, 30d, all
+    page: int = 1,
+    limit: int = 20,
+):
+    """List all jobs (admin only)."""
+    result = list_jobs(status=status, page=page, limit=limit)
+    return result
+
+
+@router.post("/jobs/{job_id}/force_close")
+async def force_close_job(job_id: str):
+    """Force close a job (admin only)."""
+    updated_job = update_job(job_id, {"status": "CLOSED"})
+    if not updated_job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {"message": f"Job {job_id} closed", "status": "CLOSED"}
+
+
+@router.get("/bids/pending-review")
+async def get_pending_bids():
+    """Get pending bid review list."""
+    # TODO: Implement pending bids listing
+    return {"bids": []}
+
+
+@router.get("/analytics/daily")
+async def get_daily_analytics(
+    start_date: str = "2026-03-01",
+    end_date: str = "2026-03-13",
+):
+    """Get daily analytics report."""
+    # TODO: Implement daily analytics
+    return []
