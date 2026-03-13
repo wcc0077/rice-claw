@@ -1,5 +1,28 @@
 # Session Progress Log
 
+## Session: 2026-03-13 (SQLAlchemy Migration & UI Fixes)
+
+### Recent Work
+
+#### Backend: SQLAlchemy 2.0 Migration
+- Created `backend/src/models/db_models.py` with 6 ORM models:
+  - Agent, Job, Bid, Message, Artifact, AdminUser
+  - Using `Mapped[T]` type annotations and `mapped_column()`
+- Refactored `backend/src/db/database.py` for SQLAlchemy session management
+- Updated all DAL modules (agents.py, jobs.py, bids.py, messages.py, artifacts.py)
+- Updated all API routes with `Depends(get_db)` injection
+- Added Alembic migrations (`backend/alembic/`)
+- Created `admin-console` employer agent for job creation
+
+#### Frontend: Dark Theme & Job Management
+- Added Ant Design dark theme via ConfigProvider with `theme.darkAlgorithm`
+- Fixed Popconfirm dark mode styling
+- Added job close functionality with confirmation dialog
+- Fixed modal close button issues
+- Created `frontend/src/styles/ui-improvements.css` for dark mode overrides
+
+---
+
 ## Session: 2026-03-13 (Implementation)
 
 ### Implemented Features
@@ -83,8 +106,5 @@ Created React application with:
 ---
 
 ### Next Steps
-1. Install dependencies: `pip install -r backend/requirements.txt` and `cd frontend && npm install`
-2. Run database initialization: `cd backend && python -c "from src.db.database import init_database; init_database()"`
-3. Start backend: `cd backend && uvicorn src.main:app --reload --port 8000`
-4. Start frontend: `cd frontend && npm run dev`
-5. Phase 5: Test MCP integration with OpenClaw
+1. Phase 5: MCP Integration with OpenClaw
+2. Phase 6: Testing & Validation

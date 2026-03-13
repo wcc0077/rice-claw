@@ -5,11 +5,11 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 
 ---
 
-## Phase 0: API Design & Data Flow (Current Phase)
-- [ ] Define RESTful API endpoints
-- [ ] Design data flow diagrams
-- [ ] Define request/response schemas
-- [ ] Design admin console pages and components
+## Phase 0: API Design & Data Flow
+- [x] Define RESTful API endpoints
+- [x] Design data flow diagrams
+- [x] Define request/response schemas
+- [x] Design admin console pages and components
 
 **Status:** completed
 
@@ -18,33 +18,35 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 ### Phase 1: Project Setup
 - [x] Create project directory structure (backend + frontend)
 - [x] Initialize Python environment (requirements.txt, pyproject.toml)
-- [ ] Install dependencies (FastMCP, FastAPI, SQLite bindings)
+- [x] Install dependencies (FastMCP, FastAPI, SQLite, SQLAlchemy 2.0)
 - [x] Initialize React + Ant Design Pro project (package.json, vite.config.ts)
 - [x] Create basic project files (README, .gitignore)
 
-**Status:** in_progress
+**Status:** completed
 
 ---
 
 ### Phase 2: Database Schema Design
-- [ ] Design SQLite schema for 4 core tables + admin users
-- [ ] Create migration/initialization script
-- [ ] Add indexes for performance
+- [x] Design SQLite schema for 4 core tables + admin users
+- [x] Create migration/initialization script
+- [x] Add indexes for performance
+- [x] Migrate to SQLAlchemy 2.0 ORM with Alembic migrations
 
-**Status:** pending
+**Status:** completed
 
 ---
 
 ### Phase 3: Backend API Implementation
-- [ ] Set up FastAPI server skeleton
-- [ ] Implement authentication middleware
-- [ ] Implement agent management endpoints
-- [ ] Implement job management endpoints
-- [ ] Implement bidding endpoints
-- [ ] Implement communication endpoints
-- [ ] Implement admin console API endpoints
+- [x] Set up FastAPI server skeleton
+- [x] Implement authentication middleware
+- [x] Implement agent management endpoints
+- [x] Implement job management endpoints
+- [x] Implement bidding endpoints
+- [x] Implement communication endpoints
+- [x] Implement admin console API endpoints
+- [x] Refactor to SQLAlchemy 2.0 with session management
 
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -56,8 +58,22 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 - [x] Implement bid review page
 - [x] Implement message center
 - [x] Mobile-first responsive design
+- [x] Dark theme implementation with Ant Design theme config
+- [x] Job close functionality with confirmation dialog
 
 **Status:** completed
+
+---
+
+### Phase 4.5: Marketplace Page (广场) - NEW
+- [ ] Create public marketplace page (no login required)
+- [ ] Display published jobs/requirements (buyer side)
+- [ ] Display available agents/workers (seller side)
+- [ ] Implement search and filtering by tags/skills
+- [ ] Add agent capability matching visualization
+- [ ] Mobile-first responsive design matching existing theme
+
+**Status:** pending
 
 ---
 
@@ -83,7 +99,11 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
-| - | - | - |
+| 422 Unprocessable Entity on job creation | 1 | Added employer_id field and budget object transformation |
+| 400 Bad Request - employer not found | 1 | Created admin-console employer agent in database |
+| Modal close button not working | 1 | Removed invalid onClose prop, added maskClosable |
+| Popconfirm dark mode styling | 2 | Added CSS overrides + Ant Design dark theme config |
+| Table row hover turns white | 3 | Added !important overrides + ConfigProvider theme.darkAlgorithm |
 
 ---
 
@@ -92,3 +112,5 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 |----------|-----------|------|
 | Using FastMCP for server framework | Lightweight, Python-native MCP implementation | 2026-03-13 |
 | SQLite for persistence | Simple, file-based, no external dependencies | 2026-03-13 |
+| SQLAlchemy 2.0 ORM | Type-safe, better session management, Alembic migrations | 2026-03-13 |
+| Ant Design darkAlgorithm | Global dark theme solution for all components | 2026-03-13 |
