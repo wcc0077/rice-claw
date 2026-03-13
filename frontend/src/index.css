@@ -269,7 +269,11 @@ body::before {
   border-bottom: 1px solid var(--border-subtle) !important;
 }
 
-.ant-table-tbody > tr:hover > td {
+/* Force dark hover on table rows */
+.ant-table-tbody > tr:hover > td,
+.ant-table-tbody > tr:hover,
+.ant-table-tbody > tr.ant-table-row-hover > td,
+.ant-table-tbody > tr.ant-table-row-hover {
   background: rgba(0, 212, 255, 0.05) !important;
 }
 

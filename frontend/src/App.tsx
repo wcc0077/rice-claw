@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ConfigProvider } from 'antd'
+import { ConfigProvider, theme } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import MainLayout from './components/Layout/MainLayout'
@@ -14,7 +14,30 @@ import LoginPage from './pages/Login/LoginPage'
 
 function App() {
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider
+      locale={zhCN}
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorBgContainer: '#0f172a',
+          colorBgElevated: '#1e293b',
+          colorBorder: 'rgba(255, 255, 255, 0.1)',
+          colorText: '#e2e8f0',
+          colorTextSecondary: '#94a3b8',
+          colorPrimary: '#06b6d4',
+        },
+        components: {
+          Table: {
+            headerBg: '#1e293b',
+            rowHoverBg: 'rgba(6, 182, 212, 0.1)',
+            borderColor: 'rgba(255, 255, 255, 0.05)',
+          },
+          Popover: {
+            colorBgElevated: '#1e293b',
+          },
+        },
+      }}
+    >
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
