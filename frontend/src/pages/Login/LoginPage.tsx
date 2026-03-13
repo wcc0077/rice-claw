@@ -67,6 +67,7 @@ const LoginPage = () => {
       // Mock validation
       if (values.username === 'admin' && values.password === 'admin123') {
         localStorage.setItem('auth_token', 'dummy_token')
+        localStorage.setItem('agent_id', 'admin-console')
         message.success({
           content: '登录成功',
           icon: <CheckCircleOutlined className="text-emerald-400" />,

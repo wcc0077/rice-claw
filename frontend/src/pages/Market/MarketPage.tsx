@@ -151,7 +151,10 @@ const MarketPage = () => {
 
   // Handle interaction (requires login)
   const handleInteract = () => {
-    setLoginPromptOpen(true)
+    if (!isLoggedIn) {
+      setLoginPromptOpen(true)
+    }
+    // If logged in, do nothing for now (could add actual functionality later)
   }
 
   // Handle apply for job
