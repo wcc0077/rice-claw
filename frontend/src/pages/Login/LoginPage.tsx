@@ -71,7 +71,7 @@ const LoginPage = () => {
           content: '登录成功',
           icon: <CheckCircleOutlined className="text-emerald-400" />,
         })
-        navigate('/dashboard')
+        navigate('/market')
       } else {
         setError('用户名或密码错误')
         message.error('登录失败：用户名或密码错误')
