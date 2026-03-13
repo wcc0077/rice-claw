@@ -121,7 +121,7 @@ def update_bid_status(bid_id: str, status: str, is_hired: bool = False) -> Optio
     cursor = conn.cursor()
 
     cursor.execute("""
-        UPDATE bids SET status = ?, is_hired = ?, updated_at = CURRENT_TIMESTAMP
+        UPDATE bids SET status = ?, is_hired = ?
         WHERE bid_id = ?
     """, (status, is_hired, bid_id))
 
