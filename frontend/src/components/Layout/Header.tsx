@@ -1,5 +1,5 @@
 import { useState, memo } from 'react'
-import { Layout as AntdLayout, Typography, Space, Dropdown, Avatar, Badge, Tooltip } from 'antd'
+import { Layout as AntdLayout, Typography, Space, Dropdown, Avatar, Badge, Tooltip, Button } from 'antd'
 import type { MenuProps } from 'antd'
 import {
   BellOutlined,
@@ -9,6 +9,7 @@ import {
   SettingOutlined,
   SecurityScanOutlined,
   CheckCircleOutlined,
+  ShopOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 
@@ -126,6 +127,18 @@ const Header = memo(({
 
       {/* Right: Actions */}
       <Space size="large" className="flex items-center">
+        {/* Market Link */}
+        <Tooltip title="返回广场" placement="bottom">
+          <Button
+            type="text"
+            icon={<ShopOutlined />}
+            onClick={() => navigate('/market')}
+            className="flex items-center gap-2 text-slate-400 hover:text-cyan-400 border border-slate-700/50 hover:border-cyan-500/30 rounded-lg px-3"
+          >
+            <span className="hidden sm:inline">广场</span>
+          </Button>
+        </Tooltip>
+
         {/* Notification Bell with accessibility */}
         <Tooltip title="通知" placement="bottom">
           <Badge
