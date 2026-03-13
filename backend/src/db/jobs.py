@@ -131,16 +131,19 @@ def list_jobs(
     cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
 
-    # Get paginated results
+    # Get paginated results (bid_count already computed via JOIN)
     offset = (page - 1) * limit
     cursor.execute(query + " LIMIT ? OFFSET ?", params + [limit, offset])
 
-    jobs = [row_to_job(row) for row in cursor.fetchall()]
+    rows = cursor.fetchall()
     conn.close()
 
-    # Count bids for each job
-    for job in jobs:
-        job["bid_count"] = count_job_bids(job["job_id"])
+    # Build jobs with bid_count from query results
+    jobs = []
+    for row in rows:
+        job = row_to_job(row)
+        job["bid_count"] = row["bid_count"] if "bid_count" in row.keys() else 0
+        jobs.append(job)
 
     return {
         "jobs": jobs,

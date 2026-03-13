@@ -55,7 +55,6 @@ export const messageApi = {
 // Dashboard API
 export const dashboardApi = {
   stats: () => api.get('/admin/dashboard/stats'),
-  dashboardStats: () => api.get('/admin/dashboard/stats'),
   jobs: (params?: any) => api.get('/jobs', { params }),
   dailyAnalytics: (params?: any) => api.get('/admin/analytics/daily', { params }),
 }

@@ -4,17 +4,17 @@ import { create } from 'zustand'
 interface AuthState {
   token: string | null
   agentId: string | null
-  isLoggedIn: boolean
+  isLoggedIn: () => boolean
   login: (token: string, agentId: string) => void
   logout: () => void
   setToken: (token: string) => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   agentId: null,
-  isLoggedIn: false,
-  login: (token, agentId) => set({ token, agentId, isLoggedIn: true }),
-  logout: () => set({ token: null, agentId: null, isLoggedIn: false }),
+  isLoggedIn: () => get().token !== null,
+  login: (token, agentId) => set({ token, agentId }),
+  logout: () => set({ token: null, agentId: null }),
   setToken: (token) => set({ token }),
 }))

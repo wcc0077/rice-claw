@@ -20,7 +20,7 @@ const DashboardPage = () => {
   const fetchDashboardData = async () => {
     try {
       const [statsRes, jobsRes] = await Promise.all([
-        dashboardApi.dashboardStats(),
+        dashboardApi.stats(),
         dashboardApi.jobs({ status: 'OPEN', limit: 5 }),
       ])
       setStats(statsRes.data)

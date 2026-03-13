@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
-from ..db.bids import create_bid, get_bids_for_job, update_bid_status
+from ..db.bids import create_bid, get_bids_for_job, update_bid_status, get_bid
 from ..db.jobs import get_job, count_job_bids
 from ..db.agents import get_agent
 from ..models.schemas import (
@@ -81,7 +81,7 @@ async def accept_bid_endpoint(job_id: str, bid_id: str):
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-    bid = get_bid_by_id(bid_id)
+    bid = get_bid(bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail=f"Bid {bid_id} not found")
     if bid["job_id"] != job_id:
@@ -104,7 +104,7 @@ async def reject_bid_endpoint(job_id: str, bid_id: str):
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-    bid = get_bid_by_id(bid_id)
+    bid = get_bid(bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail=f"Bid {bid_id} not found")
     if bid["job_id"] != job_id:
@@ -113,9 +113,3 @@ async def reject_bid_endpoint(job_id: str, bid_id: str):
     updated_bid = update_bid_status(bid_id, "REJECTED", is_hired=False)
 
     return {"message": "Bid rejected", "bid": BidResponse(**updated_bid)}
-
-
-def get_bid_by_id(bid_id: str):
-    """Helper to get bid by ID."""
-    from ..db.bids import get_bid
-    return get_bid(bid_id)

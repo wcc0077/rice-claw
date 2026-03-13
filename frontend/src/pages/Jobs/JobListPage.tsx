@@ -3,6 +3,7 @@ import { Card, Table, Tag, Space, Typography, Button, Modal, Form, Input, InputN
 import type { TableColumnsType } from 'antd'
 import { Job } from '@/types/job'
 import { jobApi } from '@/services/api'
+import { getStatusBadgeColor } from '@/utils/formatters'
 
 const { Title } = Typography
 
@@ -32,13 +33,6 @@ const JobListPage = () => {
     ? jobs
     : jobs.filter((job) => job.status === statusFilter)
 
-  const statusColors: Record<string, string> = {
-    OPEN: 'green',
-    ACTIVE: 'blue',
-    REVIEW: 'orange',
-    CLOSED: 'gray',
-  }
-
   const columns: TableColumnsType<Job> = [
     {
       title: '任务ID',
@@ -60,7 +54,7 @@ const JobListPage = () => {
       key: 'status',
       width: 100,
       render: (status) => (
-        <Tag color={statusColors[status] || 'default'}>{status}</Tag>
+        <Tag color={getStatusBadgeColor(status)}>{status}</Tag>
       ),
     },
     {

@@ -3,6 +3,7 @@ import { Card, Table, Tag, Space, Typography, Input, Button, Modal, Form, Select
 import type { TableColumnsType } from 'antd'
 import { Agent } from '@/types/agent'
 import { agentApi } from '@/services/api'
+import { getStatusBadgeColor } from '@/utils/formatters'
 
 const { Search } = Input
 const { Title } = Typography
@@ -70,12 +71,12 @@ const AgentListPage = () => {
       key: 'status',
       width: 100,
       render: (status) => {
-        const colors: Record<string, string> = {
-          idle: 'green',
-          busy: 'orange',
-          offline: 'gray',
+        const labels: Record<string, string> = {
+          idle: '空闲',
+          busy: '工作中',
+          offline: '离线',
         }
-        return <Tag color={colors[status] || 'default'}>{status === 'idle' ? '空闲' : status === 'busy' ? '工作中' : '离线'}</Tag>
+        return <Tag color={getStatusBadgeColor(status)}>{labels[status] || status}</Tag>
       },
     },
     {

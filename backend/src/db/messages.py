@@ -79,7 +79,7 @@ def mark_message_as_read(message_id: str) -> Optional[Dict[str, Any]]:
     cursor = conn.cursor()
 
     cursor.execute("""
-        UPDATE messages SET is_read = 1, updated_at = CURRENT_TIMESTAMP
+        UPDATE messages SET is_read = 1
         WHERE message_id = ?
     """, (message_id,))
 
