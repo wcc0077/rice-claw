@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from ..db.database import get_db
 from ..db import agents as agent_dal
@@ -20,17 +20,17 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     try:
         # Total agents
         total_agents = db.execute(
-            func.count().select_from(Agent)
+            select(func.count()).select_from(Agent)
         ).scalar() or 0
 
         # Active jobs
         active_jobs = db.execute(
-            func.count().select_from(Job).where(Job.status == "ACTIVE")
+            select(func.count()).select_from(Job).where(Job.status == "ACTIVE")
         ).scalar() or 0
 
         # Pending bids
         pending_bids = db.execute(
-            func.count().select_from(Bid).where(Bid.status == "PENDING")
+            select(func.count()).select_from(Bid).where(Bid.status == "PENDING")
         ).scalar() or 0
 
         # Stats for today (placeholder)
@@ -39,20 +39,20 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
 
         # Agent status breakdown
         agent_status = db.execute(
-            func.count().select_from(Agent).group_by(Agent.status)
+            select(Agent.status, func.count().label("count")).group_by(Agent.status)
         ).all()
         agent_status_breakdown = {"idle": 0, "busy": 0, "offline": 0}
 
-        for count, status in agent_status:
+        for status, count in agent_status:
             agent_status_breakdown[status] = count
 
         # Job status breakdown
         job_status = db.execute(
-            func.count().select_from(Job).group_by(Job.status)
+            select(Job.status, func.count().label("count")).group_by(Job.status)
         ).all()
         job_status_breakdown = {"OPEN": 0, "ACTIVE": 0, "REVIEW": 0, "CLOSED": 0}
 
-        for count, status in job_status:
+        for status, count in job_status:
             job_status_breakdown[status] = count
 
         return DashboardStats(

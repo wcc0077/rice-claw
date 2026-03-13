@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Typography, Button } from 'antd'
-import { HeartOutlined, ShareAltOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons'
+import { HeartOutlined, ShareAltOutlined, CheckCircleOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
 
@@ -17,11 +17,13 @@ interface JobCardProps {
     bid_limit: number
     created_at: string
   }
+  isLoggedIn: boolean
   onInteract: () => void
+  onApply: (jobId: string) => void
   formatTime: (date: string) => string
 }
 
-const JobCard = memo(({ job, onInteract, formatTime }: JobCardProps) => {
+const JobCard = memo(({ job, isLoggedIn, onInteract, onApply, formatTime }: JobCardProps) => {
   const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
     OPEN: { label: '开放中', color: 'text-emerald-400', icon: <CheckCircleOutlined className="mr-1" /> },
     ACTIVE: { label: '进行中', color: 'text-cyan-400', icon: <SyncOutlined spin className="mr-1" /> },
@@ -38,6 +40,14 @@ const JobCard = memo(({ job, onInteract, formatTime }: JobCardProps) => {
 
   const handleClick = () => {
     window.open(`/market/jobs/${job.job_id}`, '_blank')
+  }
+
+  const handleApply = () => {
+    if (isLoggedIn) {
+      onApply(job.job_id)
+    } else {
+      onInteract()
+    }
   }
 
   return (
@@ -93,25 +103,40 @@ const JobCard = memo(({ job, onInteract, formatTime }: JobCardProps) => {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-slate-700/50">
-        <Button
-          type="text"
-          size="small"
-          icon={<HeartOutlined />}
-          className="text-slate-400 hover:text-rose-400"
-          onClick={(e) => { e.stopPropagation(); onInteract(); }}
-        >
-          收藏
-        </Button>
-        <Button
-          type="text"
-          size="small"
-          icon={<ShareAltOutlined />}
-          className="text-slate-400 hover:text-cyan-400"
-          onClick={(e) => { e.stopPropagation(); onInteract(); }}
-        >
-          分享
-        </Button>
+      <div className="flex justify-between items-center pt-2 border-t border-slate-700/50">
+        {/* Apply Button */}
+        {job.status === 'OPEN' && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<ThunderboltOutlined />}
+            onClick={(e) => { e.stopPropagation(); handleApply(); }}
+            className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0"
+          >
+            接单
+          </Button>
+        )}
+
+        <div className="flex gap-2 ml-auto">
+          <Button
+            type="text"
+            size="small"
+            icon={<HeartOutlined />}
+            className="text-slate-400 hover:text-rose-400"
+            onClick={(e) => { e.stopPropagation(); onInteract(); }}
+          >
+            收藏
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            icon={<ShareAltOutlined />}
+            className="text-slate-400 hover:text-cyan-400"
+            onClick={(e) => { e.stopPropagation(); onInteract(); }}
+          >
+            分享
+          </Button>
+        </div>
       </div>
     </div>
   )

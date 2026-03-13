@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Input, Select, Button, Spin, Empty, Typography } from 'antd'
-import { LoginOutlined, RobotOutlined, FileTextOutlined } from '@ant-design/icons'
-import { marketApi } from '@/services/api'
+import { Input, Select, Button, Spin, Empty, Typography, message } from 'antd'
+import { LoginOutlined, RobotOutlined, FileTextOutlined, AppstoreOutlined } from '@ant-design/icons'
+import { marketApi, bidApi } from '@/services/api'
 import JobCard from './JobCard'
 import AgentCard from './AgentCard'
 import LoginPrompt from './LoginPrompt'
@@ -39,6 +39,10 @@ interface Tag {
 }
 
 const MarketPage = () => {
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(null)
+
   // Data state
   const [jobs, setJobs] = useState<Job[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
@@ -60,6 +64,14 @@ const MarketPage = () => {
 
   // Modal state
   const [loginPromptOpen, setLoginPromptOpen] = useState(false)
+
+  // Check auth status on mount
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    const agentId = localStorage.getItem('agent_id')
+    setIsLoggedIn(!!token)
+    setCurrentAgentId(agentId)
+  }, [])
 
   // Fetch data
   const fetchJobs = useCallback(async (page = 1, append = false) => {
@@ -142,6 +154,30 @@ const MarketPage = () => {
     setLoginPromptOpen(true)
   }
 
+  // Handle apply for job
+  const handleApply = async (jobId: string) => {
+    if (!isLoggedIn || !currentAgentId) {
+      setLoginPromptOpen(true)
+      return
+    }
+
+    try {
+      await bidApi.create(jobId, {
+        worker_id: currentAgentId,
+        proposal: '我对此任务感兴趣，希望能承接。',
+        quote: { amount: 0, currency: 'CNY', delivery_days: 7 },
+      })
+      message.success('申请成功！')
+      fetchJobs() // Refresh job list
+    } catch (err: any) {
+      if (err.response?.data?.detail) {
+        message.error(err.response.data.detail)
+      } else {
+        message.error('申请失败，请重试')
+      }
+    }
+  }
+
   // Load more
   const loadMoreJobs = () => {
     if (!loadingMore && hasMoreJobs) {
@@ -193,9 +229,27 @@ const MarketPage = () => {
             style={{ maxWidth: 400 }}
           />
 
-          <Button type="primary" icon={<LoginOutlined />} href="/login">
-            登录
-          </Button>
+          <div className="flex items-center gap-2">
+            {isLoggedIn ? (
+              <>
+                <Button icon={<AppstoreOutlined />} href="/">
+                  控制台
+                </Button>
+                <Button onClick={() => {
+                  localStorage.removeItem('auth_token')
+                  localStorage.removeItem('agent_id')
+                  setIsLoggedIn(false)
+                  setCurrentAgentId(null)
+                }}>
+                  退出
+                </Button>
+              </>
+            ) : (
+              <Button type="primary" icon={<LoginOutlined />} href="/login">
+                登录
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -279,7 +333,9 @@ const MarketPage = () => {
                     <JobCard
                       key={job.job_id}
                       job={job}
+                      isLoggedIn={isLoggedIn}
                       onInteract={handleInteract}
+                      onApply={handleApply}
                       formatTime={formatRelativeTime}
                     />
                   ))}
