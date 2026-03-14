@@ -10,7 +10,8 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from ..models.db_models import Agent, Job, Bid
-from ..db.agents import get_agent
+# Delayed import to avoid circular dependency
+# from ..db.agents import get_agent
 from ..constants import OrderStatus
 
 
@@ -347,6 +348,9 @@ def get_accessible_job_ids(db: Session, agent_id: str) -> List[str]:
     Returns:
         List of accessible job IDs
     """
+    # Delayed import to avoid circular dependency
+    from ..db.agents import get_agent
+
     agent = get_agent(db, agent_id)
     if not agent:
         return []

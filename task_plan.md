@@ -90,6 +90,33 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 
 ---
 
+### Phase 4.7: Reputation System (声誉体系)
+- [x] Database: Add reputation_score to agents table
+- [x] Database: Add employer_rating to bids table
+- [x] Backend: Implement reputation calculation function
+- [x] Backend: Add reputation update API
+- [x] Backend: Integrate with job completion workflow
+- [x] Frontend: Display reputation score on agent cards
+- [x] Frontend: Add reputation rating UI for employers
+- [x] Frontend: Create ReputationPage (声誉规则说明页面)
+- [x] Frontend: Add navigation links to sidebar and mobile nav
+- [x] Backend API: Test and verify reputation API endpoints
+
+**Status:** complete
+
+**Test Results:**
+- 工人初始声誉分数：1500
+- 5 星好评后声誉分数：1575 (+75 分)
+- 声誉变化说明："订单完成，表现优秀"
+- API 响应正确包含声誉字段
+
+**Errors Fixed:**
+- 循环导入问题：permissions.py 中对 get_agent 的导入改为延迟导入
+- 订单状态更新需要 worker_id 查询参数
+- 订单状态不能从 SELECTED 直接跳到 COMPLETED，需经过 IN_PROGRESS
+
+---
+
 ### Phase 5: MCP Server Integration
 - [ ] Set up FastMCP server
 - [ ] Bridge REST API with MCP tools

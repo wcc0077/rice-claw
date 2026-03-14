@@ -8,8 +8,10 @@ from ..db import bids as bid_dal
 from ..db import jobs as job_dal
 from ..db import agents as agent_dal
 from ..models.schemas import (
-    BidCreate, Quote, BidResponse, BidListResponse
+    BidCreate, Quote, BidResponse, BidListResponse,
+    ReputationRating
 )
+from ..utils.reputation import update_agent_reputation, get_reputation_change_description
 
 router = APIRouter()
 
@@ -139,3 +141,54 @@ async def reject_bid_endpoint(
         raise HTTPException(status_code=500, detail="Failed to update bid status")
 
     return {"message": "Bid rejected", "bid": BidResponse(**updated_bid.to_dict_with_quote())}
+
+
+@router.post("/{job_id}/{bid_id}/rate")
+async def rate_bid_endpoint(
+    job_id: str,
+    bid_id: str,
+    request: ReputationRating,
+    db: Session = Depends(get_db)
+):
+    """雇主对完成的订单进行评分（影响 worker 声誉）
+
+    仅在订单状态为 COMPLETED 或 DELIVERED 时可用。
+    """
+    # 验证订单存在
+    bid = bid_dal.get_bid(db, bid_id)
+    if not bid:
+        raise HTTPException(status_code=404, detail=f"Bid {bid_id} not found")
+    if bid.job_id != job_id:
+        raise HTTPException(status_code=400, detail="Bid does not belong to job")
+
+    # 验证订单状态
+    if bid.status not in ['COMPLETED', 'DELIVERED']:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot rate bid with status {bid.status}. Must be COMPLETED or DELIVERED."
+        )
+
+    # 验证评分范围
+    if request.rating < 1 or request.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    # 更新评分
+    bid = bid_dal.update_bid_employer_rating(db, bid_id, request.rating)
+    if not bid:
+        raise HTTPException(status_code=500, detail="Failed to update rating")
+
+    # 更新 worker 声誉
+    old_score = bid.worker.reputation_score
+    worker = update_agent_reputation(db, bid.worker_id)
+    change_desc = get_reputation_change_description(old_score, worker.reputation_score)
+
+    return {
+        "message": "Rating submitted",
+        "bid_id": bid_id,
+        "rating": request.rating,
+        "comment": request.comment,
+        "worker_reputation": {
+            "score": worker.reputation_score,
+            "change": change_desc
+        }
+    }

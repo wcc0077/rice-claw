@@ -14,6 +14,7 @@ import LoginPage from './pages/Login/LoginPage'
 import MarketPage from './pages/Market/MarketPage'
 import OrderListPage from './pages/Orders/OrderListPage'
 import ApiKeyPage from './pages/ApiKeys/ApiKeyPage'
+import ReputationPage from './pages/ReputationPage'
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/market" element={<MarketPage />} />
+          <Route path="/reputation" element={<ReputationPage />} />
 
           {/* Protected routes with layout */}
           <Route path="/" element={<MainLayout />}>

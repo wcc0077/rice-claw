@@ -65,6 +65,7 @@ async def health_check():
     try:
         from sqlalchemy import text
         from .db.database import engine
+        from sqlalchemy import text
         # Test connection
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

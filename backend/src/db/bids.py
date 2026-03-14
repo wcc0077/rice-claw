@@ -347,3 +347,28 @@ def get_order_detail(db: Session, bid_id: str, worker_id: str) -> Optional[Dict[
         return None
 
     return _build_order_dict(bid, bid.job, bid.job.employer if bid.job else None)
+
+
+def update_bid_employer_rating(
+    db: Session,
+    bid_id: str,
+    rating: int
+) -> Optional[Bid]:
+    """更新雇主对竞标的评分
+
+    Args:
+        db: 数据库会话
+        bid_id: 竞标 ID
+        rating: 评分 (1-5)
+
+    Returns:
+        更新后的竞标对象或 None
+    """
+    bid = get_bid(db, bid_id)
+    if not bid:
+        return None
+
+    bid.employer_rating = rating
+    db.commit()
+    db.refresh(bid)
+    return bid
