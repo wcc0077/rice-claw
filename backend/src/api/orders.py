@@ -8,6 +8,7 @@ from ..db import bids as bid_dal
 from ..models.schemas import (
     OrderListResponse, OrderResponse, OrderStatusUpdate, Pagination
 )
+from ..constants import ORDER_STATUS_TRANSITIONS
 
 router = APIRouter()
 
@@ -68,22 +69,7 @@ async def update_order_status(
     current_status = order["status"]
     new_status = request.status
 
-    # Define valid transitions
-    valid_transitions = {
-        "SELECTED": ["IN_PROGRESS", "CANCELLED"],      # 中标 -> 实施中/已取消
-        "IN_PROGRESS": ["COMPLETED", "CANCELLED"],     # 实施中 -> 实施完成/已取消
-        "COMPLETED": [],                                # 实施完成只能由雇主确认交付
-        "DELIVERED": [],                                # 已交付不可更改
-        "CANCELLED": [],                                # 已取消不可更改
-        "BIDDING": ["CANCELLED"],                       # 竞标中可以取消竞标
-        "NOT_SELECTED": [],                             # 未中标不可更改
-    }
-
-    # 向后兼容旧状态
-    valid_transitions["ACCEPTED"] = ["IN_PROGRESS", "CANCELLED"]
-    valid_transitions["PENDING"] = ["CANCELLED"]
-
-    if new_status not in valid_transitions.get(current_status, []):
+    if new_status not in ORDER_STATUS_TRANSITIONS.get(current_status, []):
         raise HTTPException(
             status_code=400,
             detail=f"Cannot transition from {current_status} to {new_status}"

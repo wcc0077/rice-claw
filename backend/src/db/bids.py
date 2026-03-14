@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, func, update
 
 from ..models.db_models import Bid, Job, Agent
+from ..constants import (
+    OrderStatus,
+    VALID_ORDER_STATUSES,
+    ORDER_STATUS_LABELS,
+    STATUS_NORMALIZE,
+)
 
 
 def create_bid(db: Session, bid_data: Dict[str, Any]) -> Bid:
@@ -137,19 +143,7 @@ def update_bid_status(
     Raises:
         ValueError: 无效的状态值
     """
-    # 新的订单状态
-    valid_statuses = [
-        "BIDDING",        # 竞标中
-        "SELECTED",       # 中标
-        "NOT_SELECTED",   # 未中标
-        "IN_PROGRESS",    # 实施中
-        "COMPLETED",      # 实施完成
-        "DELIVERED",      # 已交付
-        "CANCELLED",      # 已取消
-        # 向后兼容旧状态
-        "PENDING", "ACCEPTED", "REJECTED"
-    ]
-    if status not in valid_statuses:
+    if status not in VALID_ORDER_STATUSES:
         raise ValueError(f"Invalid status: {status}")
 
     bid = get_bid(db, bid_id)
@@ -223,27 +217,6 @@ def row_to_bid(row) -> Dict[str, Any]:
 # 订单相关函数 (Order functions)
 # =============================================================================
 
-ORDER_STATUS_LABELS = {
-    "BIDDING": "竞标中",
-    "SELECTED": "中标",
-    "NOT_SELECTED": "未中标",
-    "IN_PROGRESS": "实施中",
-    "COMPLETED": "实施完成",
-    "DELIVERED": "已交付",
-    "CANCELLED": "已取消",
-    # 向后兼容
-    "PENDING": "竞标中",
-    "ACCEPTED": "中标",
-    "REJECTED": "未中标",
-}
-
-# Legacy status normalization mapping
-STATUS_NORMALIZE = {
-    "PENDING": "BIDDING",
-    "ACCEPTED": "SELECTED",
-    "REJECTED": "NOT_SELECTED",
-}
-
 
 def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Agent] = None) -> Dict[str, Any]:
     """构建订单字典的辅助函数"""
@@ -277,13 +250,12 @@ def get_worker_orders(
 
     # 状态过滤 - 支持新旧状态名称
     if status:
-        legacy_status = None
-        if status == "BIDDING":
-            legacy_status = "PENDING"
-        elif status == "SELECTED":
-            legacy_status = "ACCEPTED"
-        elif status == "NOT_SELECTED":
-            legacy_status = "REJECTED"
+        # Get legacy status if applicable
+        legacy_status = {
+            OrderStatus.BIDDING: OrderStatus.PENDING,
+            OrderStatus.SELECTED: OrderStatus.ACCEPTED,
+            OrderStatus.NOT_SELECTED: OrderStatus.REJECTED,
+        }.get(status)
 
         if legacy_status:
             base_query = base_query.where(

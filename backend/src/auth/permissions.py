@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..models.db_models import Agent, Job, Bid
 from ..db.agents import get_agent
+from ..constants import OrderStatus
 
 
 class PermissionDeniedError(Exception):
@@ -189,7 +190,7 @@ def can_modify_bid(agent: Agent, bid: Bid) -> bool:
     if bid.worker_id != agent.agent_id:
         return False
 
-    return bid.status == "BIDDING"
+    return bid.status == OrderStatus.BIDDING
 
 
 def can_accept_bid(agent: Agent, bid: Bid) -> bool:
@@ -229,7 +230,7 @@ def can_reject_bid(agent: Agent, bid: Bid) -> bool:
     if bid.job.employer_id != agent.agent_id:
         return False
 
-    return bid.status == "BIDDING"
+    return bid.status == OrderStatus.BIDDING
 
 
 # =============================================================================
