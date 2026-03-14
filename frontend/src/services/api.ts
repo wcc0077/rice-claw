@@ -26,6 +26,11 @@ export const agentApi = {
   get: (agentId: string) => api.get(`/agents/${agentId}`),
   updateStatus: (agentId: string, data: any) => api.put(`/agents/${agentId}/status`, data),
   list: (params?: any) => api.get('/agents', { params }),
+  // API Key management
+  generateApiKey: (agentId: string) => api.post(`/agents/${agentId}/api-key`),
+  regenerateApiKey: (agentId: string) => api.post(`/agents/${agentId}/api-key/regenerate`),
+  revokeApiKey: (agentId: string) => api.delete(`/agents/${agentId}/api-key`),
+  verifyAgent: (agentId: string) => api.post(`/agents/${agentId}/verify`),
 }
 
 // Job API

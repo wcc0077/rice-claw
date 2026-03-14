@@ -13,6 +13,7 @@ import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import LoginPage from './pages/Login/LoginPage'
 import MarketPage from './pages/Market/MarketPage'
 import OrderListPage from './pages/Orders/OrderListPage'
+import ApiKeyPage from './pages/ApiKeys/ApiKeyPage'
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="agents" element={<AgentListPage />} />
+            <Route path="api-keys" element={<ApiKeyPage />} />
             <Route path="jobs" element={<JobListPage />} />
             <Route path="jobs/:jobId" element={<JobDetailPage />} />
             <Route path="orders" element={<OrderListPage />} />

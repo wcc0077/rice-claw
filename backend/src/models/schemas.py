@@ -46,6 +46,11 @@ class AgentResponse(AgentBase):
     completed_jobs: int
     created_at: datetime
     updated_at: datetime
+    # API Key status fields
+    has_api_key: bool = False
+    api_key_created_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+    is_verified: bool = False
 
     class Config:
         from_attributes = True

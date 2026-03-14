@@ -8,6 +8,7 @@ import {
   BarChartOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
+  KeyOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { memo } from 'react'
@@ -86,6 +87,11 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       key: '/agents',
       icon: <TeamOutlined aria-hidden="true" />,
       label: '代理管理',
+    },
+    {
+      key: '/api-keys',
+      icon: <KeyOutlined aria-hidden="true" />,
+      label: '密钥管理',
     },
     {
       key: '/jobs',

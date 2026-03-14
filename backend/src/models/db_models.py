@@ -66,6 +66,11 @@ class Agent(Base):
             "status": self.status,
             "rating": float(self.rating),
             "completed_jobs": self.completed_jobs,
+            # API Key status fields
+            "has_api_key": bool(self.api_key_hash),
+            "api_key_created_at": self.api_key_created_at.isoformat() if self.api_key_created_at else None,
+            "last_seen_at": self.last_seen_at.isoformat() if self.last_seen_at else None,
+            "is_verified": self.is_verified,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
