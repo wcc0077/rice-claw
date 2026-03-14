@@ -47,7 +47,6 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/market" element={<MarketPage />} />
-          <Route path="/reputation" element={<ReputationPage />} />
 
           {/* Protected routes with layout */}
           <Route path="/" element={<MainLayout />}>
@@ -58,6 +57,7 @@ function App() {
             <Route path="jobs" element={<JobListPage />} />
             <Route path="jobs/:jobId" element={<JobDetailPage />} />
             <Route path="orders" element={<OrderListPage />} />
+            <Route path="reputation" element={<ReputationPage />} />
             <Route path="messages" element={<MessageListPage />} />
             <Route path="messages/:agentId" element={<ChatPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />

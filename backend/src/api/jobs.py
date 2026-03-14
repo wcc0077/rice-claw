@@ -22,9 +22,7 @@ async def create_job_endpoint(
     # Verify employer exists
     employer = agent_dal.get_agent(db, request.employer_id)
     if not employer:
-        raise HTTPException(status_code=400, detail=f"Employer {request.employer_id} not found")
-    if employer.agent_type != "employer":
-        raise HTTPException(status_code=400, detail=f"Agent {request.employer_id} is not an employer")
+        raise HTTPException(status_code=400, detail=f"Lobster {request.employer_id} not found")
 
     try:
         job_data = request.model_dump()

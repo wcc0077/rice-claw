@@ -348,14 +348,65 @@ def delete_agent(db: Session, agent_id: str) -> bool:
 
     Returns:
         是否删除成功
+
+    Raises:
+        ValueError: 代理有关联数据无法删除
     """
+    from ..models.db_models import Job, Bid, Message, Artifact
+
     agent = get_agent(db, agent_id)
     if not agent:
         return False
 
+    # 检查是否有关联数据
+    job_count = db.execute(
+        select(func.count()).where(Job.employer_id == agent_id)
+    ).scalar() or 0
+
+    bid_count = db.execute(
+        select(func.count()).where(Bid.worker_id == agent_id)
+    ).scalar() or 0
+
+    if job_count > 0 or bid_count > 0:
+        raise ValueError(
+            f"无法删除代理：关联了 {job_count} 个任务和 {bid_count} 个竞标。"
+            "请先处理相关数据。"
+        )
+
     db.delete(agent)
     db.commit()
     return True
+
+
+def update_agent(db: Session, agent_id: str, name: Optional[str] = None,
+                 capabilities: Optional[List[str]] = None,
+                 description: Optional[str] = None) -> Optional[Agent]:
+    """更新代理信息
+
+    Args:
+        db: 数据库会话
+        agent_id: 代理ID
+        name: 新名称
+        capabilities: 新技能列表
+        description: 新描述
+
+    Returns:
+        更新后的代理对象或 None
+    """
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return None
+
+    if name is not None:
+        agent.name = name
+    if capabilities is not None:
+        agent.capabilities = ",".join(capabilities)
+    if description is not None:
+        agent.description = description
+
+    db.commit()
+    db.refresh(agent)
+    return agent
 
 
 # =============================================================================
@@ -382,4 +433,192 @@ def row_to_agent(row) -> Dict[str, Any]:
         "completed_jobs": row["completed_jobs"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+    }
+
+
+# =============================================================================
+# 声誉相关函数
+# =============================================================================
+
+def get_agent_reputation_detail(db: Session, agent_id: str) -> Optional[Dict[str, Any]]:
+    """获取 agent 的声誉详情，包含各维度分数和排名
+
+    Args:
+        db: 数据库会话
+        agent_id: agent ID
+
+    Returns:
+        声誉详情字典或 None
+    """
+    from ..models.db_models import Bid
+    from ..utils.reputation import (
+        get_reputation_level, calculate_quality_score,
+        MAX_FULFILLMENT_SCORE, MAX_QUALITY_SCORE, MAX_ACTIVITY_SCORE,
+        BASE_SCORE, MIN_SCORE, MAX_SCORE
+    )
+    from datetime import datetime, timedelta
+
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return None
+
+    # 获取所有竞标记录
+    all_bids = db.execute(
+        select(Bid).where(Bid.worker_id == agent_id)
+    ).scalars().all()
+
+    # 计算各维度分数
+    completed_bids = [b for b in all_bids if b.status in ['COMPLETED', 'DELIVERED']]
+    cancelled_bids = [b for b in all_bids if b.status == 'CANCELLED']
+
+    # 履约分
+    fulfillment_raw = len(completed_bids) * 10 - len(cancelled_bids) * 20
+    fulfillment_score = max(-MAX_FULFILLMENT_SCORE, min(MAX_FULFILLMENT_SCORE, fulfillment_raw))
+
+    # 质量分
+    rated_bids = [b for b in completed_bids if b.employer_rating is not None]
+    if rated_bids:
+        avg_rating = sum(b.employer_rating for b in rated_bids if b.employer_rating is not None) / len(rated_bids)
+        quality_raw = calculate_quality_score(avg_rating)
+        quality_score = max(-MAX_QUALITY_SCORE, min(MAX_QUALITY_SCORE, quality_raw))
+    else:
+        avg_rating = 0
+        quality_score = 0
+
+    # 活跃分
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    recent_completed = db.execute(
+        select(func.count()).where(
+            Bid.worker_id == agent_id,
+            Bid.status.in_(['COMPLETED', 'DELIVERED']),
+            Bid.submitted_at >= thirty_days_ago
+        )
+    ).scalar() or 0
+    activity_score = min(recent_completed * 15, MAX_ACTIVITY_SCORE)
+
+    # 总分
+    total_score = BASE_SCORE + fulfillment_score + quality_score + activity_score
+    total_score = max(MIN_SCORE, min(MAX_SCORE, total_score))
+
+    # 等级信息
+    level_name, level_stars = get_reputation_level(total_score)
+
+    # 计算排名 - 统计所有龙虾
+    total_lobsters = db.execute(
+        select(func.count())
+    ).scalar() or 1
+
+    # 统计比当前分数高的龙虾数量
+    higher_count = db.execute(
+        select(func.count()).where(
+            Agent.reputation_score > total_score
+        )
+    ).scalar() or 0
+
+    # 统计相同分数的龙虾数量（包括自己）
+    same_count = db.execute(
+        select(func.count()).where(
+            Agent.reputation_score == total_score
+        )
+    ).scalar() or 1
+
+    # 排名 = 比自己高的人数 + 1
+    rank = higher_count + 1
+    # 超越的百分比
+    percentile = round(((total_lobsters - same_count - higher_count) / total_lobsters) * 100, 1) if total_lobsters > 1 else 100.0
+
+    # 下一等级信息
+    next_level = None
+    points_to_next = 0
+    LEVEL_THRESHOLDS = [
+        (2500, "顶级", "⭐⭐⭐⭐⭐"),
+        (2000, "优秀", "⭐⭐⭐⭐"),
+        (1500, "良好", "⭐⭐⭐"),
+        (1200, "一般", "⭐⭐"),
+    ]
+    for threshold, name, stars in LEVEL_THRESHOLDS:
+        if total_score < threshold:
+            next_level = {"name": name, "stars": stars, "threshold": threshold}
+            points_to_next = threshold - total_score
+            break
+
+    return {
+        "agent_id": agent_id,
+        "agent_name": agent.name,
+        "total_score": total_score,
+        "level_name": level_name,
+        "level_stars": level_stars,
+        "next_level": next_level,
+        "points_to_next": points_to_next,
+        # 排名信息
+        "ranking": {
+            "rank": rank,
+            "total": total_lobsters,
+            "percentile": percentile,
+            "same_score_count": same_count,
+        },
+        "breakdown": {
+            "fulfillment": {
+                "score": fulfillment_score,
+                "max": MAX_FULFILLMENT_SCORE,
+                "completed_orders": len(completed_bids),
+                "cancelled_orders": len(cancelled_bids),
+            },
+            "quality": {
+                "score": quality_score,
+                "max": MAX_QUALITY_SCORE,
+                "avg_rating": round(avg_rating, 1) if avg_rating > 0 else None,
+                "rated_orders": len(rated_bids),
+            },
+            "activity": {
+                "score": activity_score,
+                "max": MAX_ACTIVITY_SCORE,
+                "recent_orders": recent_completed,
+            },
+        },
+    }
+
+
+def get_agent_reputation_logs(
+    db: Session,
+    agent_id: str,
+    page: int = 1,
+    limit: int = 20
+) -> Dict[str, Any]:
+    """获取 agent 的声誉变化流水
+
+    Args:
+        db: 数据库会话
+        agent_id: agent ID
+        page: 页码
+        limit: 每页数量
+
+    Returns:
+        包含 logs 和 pagination 的字典
+    """
+    from ..models.db_models import ReputationLog
+
+    # 计算总数
+    total = db.execute(
+        select(func.count()).where(ReputationLog.agent_id == agent_id)
+    ).scalar() or 0
+
+    # 分页查询
+    offset = (page - 1) * limit
+    logs = db.execute(
+        select(ReputationLog)
+        .where(ReputationLog.agent_id == agent_id)
+        .order_by(ReputationLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    ).scalars().all()
+
+    return {
+        "logs": [log.to_dict() for log in logs],
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "has_more": total > page * limit,
+        },
     }

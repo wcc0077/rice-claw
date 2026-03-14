@@ -1,278 +1,532 @@
 /**
- * 声誉体系规则说明页面
- * 展示声誉分数计算规则、等级说明和建立过程
+ * 声誉体系页面 - 分 Tab 展示规则、分数、流水
  */
 
-import React from 'react';
-import { Card, Progress, Table, Typography, Row, Col, Statistic, Icon, Tag, Steps, Alert } from 'antd-mobile';
+import { useState, useEffect } from 'react';
+import { Card, Tabs, Typography, Tag, Timeline, Empty, Spin, Progress, Row, Col, Table, Divider, Alert } from 'antd';
+import type { TabsProps } from 'antd';
 import {
-  TrophyOutline,
-  StarOutline,
-  FireOutline,
-  CheckCircleOutline,
-  CloseCircleOutline,
-  ClockCircleOutline,
-} from 'antd-mobile-icons';
+  TrophyOutlined,
+  StarOutlined,
+  FireOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  QuestionCircleOutlined,
+  InfoCircleOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 
-const { Title, Paragraph } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 // 声誉等级配置
-const REPUTATION_LEVELS = [
-  { minScore: 2500, name: '顶级', stars: '⭐⭐⭐⭐⭐', color: '#FFD700', description: '优先派活，雇主置顶显示' },
-  { minScore: 2000, name: '优秀', stars: '⭐⭐⭐⭐', color: '#C0C0C0', description: '优先推送' },
-  { minScore: 1500, name: '良好', stars: '⭐⭐⭐', color: '#CD7F32', description: '正常推送' },
-  { minScore: 1200, name: '一般', stars: '⭐⭐', color: '#666', description: '减少推送' },
-  { minScore: 1000, name: '较差', stars: '⭐', color: '#999', description: '不推送，需重新积累' },
+const LEVEL_CONFIG = [
+  { threshold: 2500, name: '顶级', stars: '⭐⭐⭐⭐⭐', color: '#FFD700', description: '优先派活，雇主置顶显示' },
+  { threshold: 2000, name: '优秀', stars: '⭐⭐⭐⭐', color: '#C0C0C0', description: '优先推送，更多曝光机会' },
+  { threshold: 1500, name: '良好', stars: '⭐⭐⭐', color: '#CD7F32', description: '正常推送，标准展示' },
+  { threshold: 1200, name: '一般', stars: '⭐⭐', color: '#666', description: '减少推送，需要积累' },
+  { threshold: 1000, name: '较差', stars: '⭐', color: '#999', description: '不推送，需重新积累' },
 ];
 
-// 计算规则
-const SCORING_RULES = [
-  {
-    name: '履约分',
-    icon: <CheckCircleOutline />,
-    description: '每完成 1 单 +10 分，每取消 1 单 -20 分',
-    range: '-200 ~ +200',
-    tip: '取消惩罚更重，鼓励履约',
-  },
-  {
-    name: '质量分',
-    icon: <StarOutline />,
-    description: '根据雇主评分计算（5 星 +50，4 星 +20，3 星 0，2 星 -20，1 星 -50）',
-    range: '-100 ~ +100',
-    tip: '取所有已完成订单的平均评分',
-  },
-  {
-    name: '活跃分',
-    icon: <FireOutline />,
-    description: '近 30 天每完成 1 单 +15 分',
-    range: '0 ~ +150',
-    tip: '鼓励持续接单保持活跃',
-  },
+// 变化类型配置
+const CHANGE_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  order_completed: { icon: <CheckCircleOutlined />, color: 'text-emerald-400', label: '订单完成' },
+  order_cancelled: { icon: <CloseCircleOutlined />, color: 'text-rose-400', label: '订单取消' },
+  rating_received: { icon: <StarOutlined />, color: 'text-amber-400', label: '收到评价' },
+  activity_bonus: { icon: <FireOutlined />, color: 'text-orange-400', label: '活跃奖励' },
+  manual_adjustment: { icon: <TrophyOutlined />, color: 'text-cyan-400', label: '手动调整' },
+};
+
+// 加分规则
+const GAIN_RULES = [
+  { action: '完成订单', points: '+10', condition: '每完成 1 单', tip: '按时交付，保证质量' },
+  { action: '获得 5 星评价', points: '+50', condition: '雇主评 5 星', tip: '超出预期交付' },
+  { action: '获得 4 星评价', points: '+20', condition: '雇主评 4 星', tip: '良好完成工作' },
+  { action: '近期活跃', points: '+15/单', condition: '近 30 天完成订单', tip: '持续接单保持活跃' },
 ];
 
-// 声誉建立过程
-const BUILD_STEPS = [
-  {
-    title: '注册起步',
-    description: '新 Agent 初始声誉分 1500 分，等级「良好」',
-    icon: <TrophyOutline />,
-  },
-  {
-    title: '接单履约',
-    description: '积极接单并按时交付，每单 +10 分履约分',
-    icon: <CheckCircleOutline />,
-  },
-  {
-    title: '获取好评',
-    description: '交付后雇主评分，5 星可获 +50 分质量分',
-    icon: <StarOutline />,
-  },
-  {
-    title: '持续活跃',
-    description: '近 30 天持续接单，每单额外 +15 分活跃分',
-    icon: <ClockCircleOutline />,
-  },
-  {
-    title: '提升等级',
-    description: '分数越高声誉等级越高，优先获得派活',
-    icon: <FireOutline />,
-  },
+// 扣分规则
+const LOSE_RULES = [
+  { action: '取消订单', points: '-20', condition: '每取消 1 单', tip: '接单前请确认能完成', warning: true },
+  { action: '获得 2 星评价', points: '-20', condition: '雇主评 2 星', tip: '注意沟通和质量' },
+  { action: '获得 1 星评价', points: '-50', condition: '雇主评 1 星', tip: '严重影响声誉', warning: true },
 ];
 
-// 计算示例
-const EXAMPLE_CASES = [
-  {
-    scenario: '新人 Agent 第一单',
-    orders: { completed: 1, cancelled: 0, recent30d: 1, avgRating: 5 },
-    calculation: {
-      fulfillment: 10,
-      quality: 50,
-      activity: 15,
-    },
-    finalScore: 1575,
-    level: '良好',
-  },
-  {
-    scenario: '优秀 Agent（10 单完成，全 5 星）',
-    orders: { completed: 10, cancelled: 0, recent30d: 5, avgRating: 5 },
-    calculation: {
-      fulfillment: 100,
-      quality: 50,
-      activity: 75,
-    },
-    finalScore: 1725,
-    level: '良好',
-  },
-  {
-    scenario: '取消 2 单的 Agent',
-    orders: { completed: 5, cancelled: 2, recent30d: 3, avgRating: 4 },
-    calculation: {
-      fulfillment: 50 - 40,
-      quality: 20,
-      activity: 45,
-    },
-    finalScore: 1565,
-    level: '良好',
-  },
-];
+interface ReputationData {
+  agent_id: string;
+  agent_name: string;
+  total_score: number;
+  level_name: string;
+  level_stars: string;
+  next_level: { name: string; stars: string; threshold: number } | null;
+  points_to_next: number;
+  ranking: {
+    rank: number;
+    total: number;
+    percentile: number;
+    same_score_count: number;
+  };
+  breakdown: {
+    fulfillment: { score: number; max: number; completed_orders: number; cancelled_orders: number };
+    quality: { score: number; max: number; avg_rating: number | null; rated_orders: number };
+    activity: { score: number; max: number; recent_orders: number };
+  };
+}
 
-const ReputationPage: React.FC = () => {
-  return (
-    <div style={{ padding: '16px', paddingBottom: '80px' }}>
-      <Title style={{ textAlign: 'center', marginBottom: '24px' }}>声誉体系</Title>
+interface ReputationLog {
+  log_id: string;
+  change_type: string;
+  score_before: number;
+  score_after: number;
+  score_change: number;
+  description: string;
+  created_at: string;
+}
 
-      {/* 声誉等级卡片 */}
-      <Card style={{ marginBottom: '16px' }}>
-        <Card.Header title="声誉等级" />
-        <Card.Content>
-          {REPUTATION_LEVELS.map((level, index) => (
-            <div
-              key={level.name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '12px 0',
-                borderBottom: index < REPUTATION_LEVELS.length - 1 ? '1px solid #eee' : 'none',
-              }}
-            >
-              <span style={{ fontSize: '24px', marginRight: '12px' }}>{level.stars}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                  <Tag color={level.color} style={{ marginRight: '8px' }}>
-                    {level.name}
-                  </Tag>
-                  <span style={{ color: '#666', fontSize: '14px' }}>{level.minScore}分以上</span>
-                </div>
-                <div style={{ color: '#999', fontSize: '12px' }}>{level.description}</div>
+// 规则说明 Tab
+const RulesTab: React.FC = () => (
+  <div className="space-y-6">
+    {/* 计算公式 */}
+    <Alert
+      type="info"
+      icon={<InfoCircleOutlined />}
+      message={
+        <div className="flex items-center gap-2">
+          <span className="text-cyan-400 font-bold">声誉分 = 1500 (基准) + 履约分 + 质量分 + 活跃分</span>
+          <Tag className="bg-slate-700 text-slate-300">范围 1000-3000</Tag>
+        </div>
+      }
+      className="bg-cyan-500/10 border-cyan-500/30"
+    />
+
+    {/* 加分规则 */}
+    <Card
+      className="glass-card"
+      title={
+        <div className="flex items-center gap-2 text-emerald-400">
+          <ArrowUpOutlined />
+          <span>如何提高分数</span>
+        </div>
+      }
+    >
+      <Table
+        dataSource={GAIN_RULES}
+        pagination={false}
+        size="small"
+        columns={[
+          { title: '行为', dataIndex: 'action', width: 120, render: (t) => <Text className="text-white">{t}</Text> },
+          {
+            title: '分数',
+            dataIndex: 'points',
+            width: 80,
+            render: (t) => <Tag className="bg-emerald-500/20 text-emerald-400 border-0">{t}</Tag>
+          },
+          { title: '条件', dataIndex: 'condition', render: (t) => <Text className="text-slate-400 text-sm">{t}</Text> },
+          { title: '建议', dataIndex: 'tip', render: (t) => <Text className="text-cyan-400 text-sm">{t}</Text> },
+        ]}
+        rowKey="action"
+      />
+    </Card>
+
+    {/* 扣分规则 */}
+    <Card
+      className="glass-card"
+      title={
+        <div className="flex items-center gap-2 text-rose-400">
+          <ArrowDownOutlined />
+          <span>如何避免减分</span>
+        </div>
+      }
+    >
+      <Table
+        dataSource={LOSE_RULES}
+        pagination={false}
+        size="small"
+        columns={[
+          {
+            title: '行为',
+            dataIndex: 'action',
+            width: 120,
+            render: (t, r) => (
+              <div className="flex items-center gap-2">
+                {r.warning && <WarningOutlined className="text-amber-400" />}
+                <Text className="text-white">{t}</Text>
               </div>
-            </div>
-          ))}
-        </Card.Content>
-      </Card>
+            )
+          },
+          {
+            title: '分数',
+            dataIndex: 'points',
+            width: 80,
+            render: (t) => <Tag className="bg-rose-500/20 text-rose-400 border-0">{t}</Tag>
+          },
+          { title: '条件', dataIndex: 'condition', render: (t) => <Text className="text-slate-400 text-sm">{t}</Text> },
+          { title: '提醒', dataIndex: 'tip', render: (t) => <Text className="text-amber-400 text-sm">{t}</Text> },
+        ]}
+        rowKey="action"
+      />
+    </Card>
 
-      {/* 计算公式 */}
-      <Card style={{ marginBottom: '16px' }}>
-        <Card.Header title="分数计算规则" />
-        <Card.Content>
-          <Alert
-            style={{ marginBottom: '16px' }}
-            icon={<TrophyOutline />}
+    {/* 等级说明 */}
+    <Card
+      className="glass-card"
+      title={
+        <div className="flex items-center gap-2 text-white">
+          <TrophyOutlined className="text-amber-400" />
+          <span>等级说明</span>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        {LEVEL_CONFIG.map((level) => (
+          <div
+            key={level.name}
+            className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50"
           >
-            <strong>声誉分 = 1500 + 履约分 + 质量分 + 活跃分</strong>
-            <br />
-            <span style={{ fontSize: '12px', color: '#666' }}>分数范围：1000-3000 分</span>
-          </Alert>
-
-          {SCORING_RULES.map((rule, index) => (
-            <div
-              key={rule.name}
-              style={{
-                padding: '12px',
-                backgroundColor: '#f5f5f5',
-                borderRadius: '8px',
-                marginBottom: index < SCORING_RULES.length - 1 ? '8px' : '0',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{
-                  fontSize: '20px',
-                  marginRight: '8px',
-                  color: '#1890ff',
-                }}>{rule.icon}</span>
-                <strong>{rule.name}</strong>
-                <Tag style={{ marginLeft: 'auto' }}>{rule.range}</Tag>
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-                {rule.description}
-              </div>
-              <div style={{ fontSize: '12px', color: '#999' }}>
-                💡 {rule.tip}
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{level.stars}</span>
+              <div>
+                <Text className="text-white font-medium">{level.name}</Text>
+                <Text className="text-slate-500 text-xs block">{level.threshold}+ 分</Text>
               </div>
             </div>
-          ))}
-        </Card.Content>
+            <Text className="text-slate-400 text-sm">{level.description}</Text>
+          </div>
+        ))}
+      </div>
+    </Card>
+  </div>
+);
+
+// 声誉分 Tab
+const ScoreTab: React.FC<{ reputation: ReputationData | null; loading: boolean }> = ({ reputation, loading }) => {
+  if (loading) {
+    return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+  }
+
+  if (!reputation) {
+    return <Empty description="暂无声誉数据" />;
+  }
+
+  const currentLevel = LEVEL_CONFIG.find(l => l.name === reputation.level_name) || LEVEL_CONFIG[2];
+  const prevThreshold = LEVEL_CONFIG.find(l => l.name === reputation.level_name)?.threshold || 1500;
+  const nextThreshold = reputation.next_level?.threshold || 3000;
+  const progressPercent = ((reputation.total_score - prevThreshold) / (nextThreshold - prevThreshold)) * 100;
+
+  return (
+    <div className="space-y-4">
+      {/* 总分概览 */}
+      <Card className="glass-card">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* 等级徽章 */}
+            <div className="text-center">
+              <div className="text-3xl mb-1">{reputation.level_stars}</div>
+              <Tag
+                style={{ backgroundColor: `${currentLevel.color}20`, color: currentLevel.color, border: 'none' }}
+                className="text-sm px-3 py-1"
+              >
+                {reputation.level_name}
+              </Tag>
+            </div>
+            {/* 分数 */}
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-bold text-white font-mono">{reputation.total_score}</span>
+                <span className="text-slate-500">分</span>
+              </div>
+              {reputation.next_level && (
+                <Text className="text-slate-400 text-sm">
+                  距「{reputation.next_level.name}」还需 <span className="text-cyan-400">{reputation.points_to_next}</span> 分
+                </Text>
+              )}
+            </div>
+          </div>
+          {/* 进度条 */}
+          {reputation.next_level && (
+            <div className="w-48">
+              <Progress
+                percent={Math.min(100, Math.max(0, progressPercent))}
+                strokeColor={currentLevel.color}
+                trailColor="rgba(255,255,255,0.1)"
+              />
+            </div>
+          )}
+        </div>
       </Card>
 
-      {/* 声誉建立过程 */}
-      <Card style={{ marginBottom: '16px' }}>
-        <Card.Header title="如何建立良好声誉" />
-        <Card.Content>
-          <Steps
-            direction="vertical"
-            current={-1}
-            items={BUILD_STEPS.map((step, index) => ({
-              title: step.title,
-              description: step.description,
-              icon: step.icon,
-            }))}
-          />
-        </Card.Content>
-      </Card>
-
-      {/* 计算示例 */}
-      <Card style={{ marginBottom: '16px' }}>
-        <Card.Header title="分数计算示例" />
-        <Card.Content>
-          {EXAMPLE_CASES.map((example, index) => (
-            <div
-              key={index}
-              style={{
-                padding: '12px',
-                backgroundColor: '#f9f9f9',
-                borderRadius: '8px',
-                marginBottom: index < EXAMPLE_CASES.length - 1 ? '8px' : '0',
-              }}
-            >
-              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{example.scenario}</div>
-              <Row gutter={8}>
-                <Col span={8}>
-                  <small>完成：{example.orders.completed}</small>
-                </Col>
-                <Col span={8}>
-                  <small>取消：{example.orders.cancelled}</small>
-                </Col>
-                <Col span={8}>
-                  <small>近 30 天：{example.orders.recent30d}</small>
-                </Col>
-              </Row>
-              <div style={{
-                marginTop: '8px',
-                padding: '8px',
-                backgroundColor: '#fff',
-                borderRadius: '4px',
-                fontSize: '13px',
-              }}>
-                <div>履约分：{example.calculation.fulfillment}</div>
-                <div>质量分：{example.calculation.quality}（均分 {example.orders.avgRating}星）</div>
-                <div>活跃分：{example.calculation.activity}</div>
-                <div style={{
-                  marginTop: '8px',
-                  paddingTop: '8px',
-                  borderTop: '1px solid #eee',
-                  fontWeight: 'bold',
-                  color: '#1890ff',
-                }}>
-                  最终得分：{example.finalScore} → {example.level}
+      {/* 排名概览 */}
+      <Card className="glass-card" bodyStyle={{ padding: 16 }}>
+        <div className="flex items-center justify-between">
+          {/* 排名信息 */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <TrophyOutlined className="text-amber-400 text-lg" />
+              <div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-white font-mono">#{reputation.ranking.rank}</span>
+                  <span className="text-slate-500 text-sm">/ {reputation.ranking.total}</span>
                 </div>
+                <Text className="text-slate-500 text-xs">全站排名</Text>
               </div>
             </div>
-          ))}
-        </Card.Content>
+            <div className="h-10 w-px bg-slate-700" />
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-cyan-400 font-mono">
+                  {reputation.ranking.percentile}%
+                </span>
+              </div>
+              <Text className="text-slate-500 text-xs">超越的打工人</Text>
+            </div>
+          </div>
+          {/* 可视化排名条 */}
+          <div className="flex-1 max-w-xs">
+            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-amber-500 rounded-full transition-all duration-500"
+                style={{ width: `${reputation.ranking.percentile}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-slate-600">
+              <span>后 {100 - reputation.ranking.percentile}%</span>
+              <span>前 {reputation.ranking.percentile}%</span>
+            </div>
+          </div>
+        </div>
       </Card>
 
-      {/* 提示 */}
-      <Alert
-        icon={<StarOutline />}
-        style={{ backgroundColor: '#e6f7ff', border: '1px solid #91d5ff' }}
-      >
-        <strong>小贴士：</strong>
-        <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-          <li>声誉分数在订单完成后实时更新</li>
-          <li>取消订单扣分较多，请谨慎接单</li>
-          <li>保持活跃可获得额外活跃分</li>
-          <li>声誉越高，获得优先派活机会越多</li>
-        </ul>
-      </Alert>
+      {/* 分数构成 */}
+      <Row gutter={16}>
+        {/* 履约分 */}
+        <Col span={8}>
+          <Card className="glass-card h-full" bodyStyle={{ padding: 16 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircleOutlined className="text-emerald-400 text-lg" />
+                <Text className="text-white">履约分</Text>
+              </div>
+              <Tag className="bg-emerald-500/20 text-emerald-400 border-0">
+                {reputation.breakdown.fulfillment.score > 0 ? '+' : ''}{reputation.breakdown.fulfillment.score}
+              </Tag>
+            </div>
+            <Progress
+              percent={(Math.abs(reputation.breakdown.fulfillment.score) / reputation.breakdown.fulfillment.max) * 100}
+              strokeColor={reputation.breakdown.fulfillment.score >= 0 ? '#10b981' : '#f43f5e'}
+              trailColor="rgba(255,255,255,0.1)"
+            />
+            <div className="flex justify-between mt-3 text-xs">
+              <div className="text-center">
+                <Text className="text-emerald-400 block">{reputation.breakdown.fulfillment.completed_orders}</Text>
+                <Text className="text-slate-500">已完成</Text>
+              </div>
+              <div className="text-center">
+                <Text className="text-rose-400 block">{reputation.breakdown.fulfillment.cancelled_orders}</Text>
+                <Text className="text-slate-500">已取消</Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        {/* 质量分 */}
+        <Col span={8}>
+          <Card className="glass-card h-full" bodyStyle={{ padding: 16 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <StarOutlined className="text-amber-400 text-lg" />
+                <Text className="text-white">质量分</Text>
+              </div>
+              <Tag className="bg-amber-500/20 text-amber-400 border-0">
+                {reputation.breakdown.quality.score > 0 ? '+' : ''}{reputation.breakdown.quality.score}
+              </Tag>
+            </div>
+            <Progress
+              percent={(Math.abs(reputation.breakdown.quality.score) / reputation.breakdown.quality.max) * 100}
+              strokeColor={reputation.breakdown.quality.score >= 0 ? '#f59e0b' : '#f43f5e'}
+              trailColor="rgba(255,255,255,0.1)"
+            />
+            <div className="flex justify-between mt-3 text-xs">
+              <div className="text-center">
+                <Text className="text-amber-400 block">
+                  {reputation.breakdown.quality.avg_rating?.toFixed(1) || '-'}
+                </Text>
+                <Text className="text-slate-500">平均评分</Text>
+              </div>
+              <div className="text-center">
+                <Text className="text-slate-300 block">{reputation.breakdown.quality.rated_orders}</Text>
+                <Text className="text-slate-500">评价数</Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        {/* 活跃分 */}
+        <Col span={8}>
+          <Card className="glass-card h-full" bodyStyle={{ padding: 16 }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <FireOutlined className="text-orange-400 text-lg" />
+                <Text className="text-white">活跃分</Text>
+              </div>
+              <Tag className="bg-orange-500/20 text-orange-400 border-0">
+                +{reputation.breakdown.activity.score}
+              </Tag>
+            </div>
+            <Progress
+              percent={(reputation.breakdown.activity.score / reputation.breakdown.activity.max) * 100}
+              strokeColor="#f97316"
+              trailColor="rgba(255,255,255,0.1)"
+            />
+            <div className="flex justify-between mt-3 text-xs">
+              <div className="text-center">
+                <Text className="text-orange-400 block">{reputation.breakdown.activity.recent_orders}</Text>
+                <Text className="text-slate-500">近30天</Text>
+              </div>
+              <div className="text-center">
+                <Text className="text-slate-400 block">{reputation.breakdown.activity.max}</Text>
+                <Text className="text-slate-500">上限</Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+
+// 流水 Tab
+const LogsTab: React.FC<{ logs: ReputationLog[]; loading: boolean }> = ({ logs, loading }) => {
+  if (loading) {
+    return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+  }
+
+  if (logs.length === 0) {
+    return (
+      <Empty
+        description="暂无流水记录"
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        className="py-12"
+      />
+    );
+  }
+
+  return (
+    <Card className="glass-card">
+      <Timeline
+        items={logs.map((log) => {
+          const config = CHANGE_TYPE_CONFIG[log.change_type] || CHANGE_TYPE_CONFIG.manual_adjustment;
+          const isPositive = log.score_change >= 0;
+          return {
+            color: isPositive ? '#10b981' : '#f43f5e',
+            dot: <span className={config.color}>{config.icon}</span>,
+            children: (
+              <div className="flex items-start justify-between py-1">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Text className="text-white">{log.description}</Text>
+                    <Tag
+                      className={`${isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} border-0`}
+                    >
+                      {isPositive ? <ArrowUpOutlined /> : <ArrowDownOutlined />} {isPositive ? '+' : ''}{log.score_change}
+                    </Tag>
+                  </div>
+                  <Text className="text-slate-500 text-xs">
+                    {log.score_before} → {log.score_after}
+                  </Text>
+                </div>
+                <Text className="text-slate-600 text-xs">
+                  {new Date(log.created_at).toLocaleDateString('zh-CN', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+              </div>
+            ),
+          };
+        })}
+      />
+    </Card>
+  );
+};
+
+// 主页面组件
+const ReputationPage: React.FC = () => {
+  const [reputation, setReputation] = useState<ReputationData | null>(null);
+  const [logs, setLogs] = useState<ReputationLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('score');
+  const [selectedAgentId] = useState('worker_001'); // TODO: 从路由或状态获取
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [repRes, logsRes] = await Promise.all([
+          fetch(`http://localhost:8000/api/v1/agents/${selectedAgentId}/reputation`).then(r => r.json()),
+          fetch(`http://localhost:8000/api/v1/agents/${selectedAgentId}/reputation/logs`).then(r => r.json()),
+        ]);
+        setReputation(repRes);
+        setLogs(logsRes.logs || []);
+      } catch (err) {
+        console.error('Failed to fetch reputation data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedAgentId]);
+
+  const tabItems: TabsProps['items'] = [
+    {
+      key: 'score',
+      label: (
+        <span className="flex items-center gap-2">
+          <TrophyOutlined />
+          我的声誉
+        </span>
+      ),
+      children: <ScoreTab reputation={reputation} loading={loading} />,
+    },
+    {
+      key: 'logs',
+      label: (
+        <span className="flex items-center gap-2">
+          <ClockCircleOutlined />
+          变化记录
+          {logs.length > 0 && (
+            <Tag className="bg-slate-700 text-slate-300 border-0 ml-1">{logs.length}</Tag>
+          )}
+        </span>
+      ),
+      children: <LogsTab logs={logs} loading={loading} />,
+    },
+    {
+      key: 'rules',
+      label: (
+        <span className="flex items-center gap-2">
+          <QuestionCircleOutlined />
+          规则说明
+        </span>
+      ),
+      children: <RulesTab />,
+    },
+  ];
+
+  return (
+    <div className="p-4">
+      <Title level={4} className="text-white mb-4 flex items-center gap-2">
+        <StarOutlined className="text-amber-400" />
+        声誉体系
+      </Title>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+        className="reputation-tabs"
+      />
     </div>
   );
 };

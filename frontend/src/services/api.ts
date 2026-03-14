@@ -24,6 +24,8 @@ api.interceptors.request.use((config) => {
 export const agentApi = {
   register: (data: any) => api.post('/agents', data),
   get: (agentId: string) => api.get(`/agents/${agentId}`),
+  update: (agentId: string, data: any) => api.put(`/agents/${agentId}`, data),
+  delete: (agentId: string) => api.delete(`/agents/${agentId}`),
   updateStatus: (agentId: string, data: any) => api.put(`/agents/${agentId}/status`, data),
   list: (params?: any) => api.get('/agents', { params }),
   // API Key management
@@ -90,6 +92,13 @@ export const orderApi = {
     api.get(`/my-orders/${bidId}`, { params: { worker_id: workerId } }),
   updateStatus: (bidId: string, workerId: string, status: string) =>
     api.patch(`/my-orders/${bidId}/status`, { status }, { params: { worker_id: workerId } }),
+}
+
+// Reputation API
+export const reputationApi = {
+  get: (agentId: string) => api.get(`/agents/${agentId}/reputation`),
+  logs: (agentId: string, page?: number, limit?: number) =>
+    api.get(`/agents/${agentId}/reputation/logs`, { params: { page, limit } }),
 }
 
 export default api

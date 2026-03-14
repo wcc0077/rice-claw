@@ -33,9 +33,7 @@ async def create_bid_endpoint(
     # Verify worker exists
     worker = agent_dal.get_agent(db, request.worker_id)
     if not worker:
-        raise HTTPException(status_code=400, detail=f"Worker {request.worker_id} not found")
-    if worker.agent_type != "worker":
-        raise HTTPException(status_code=400, detail=f"Agent {request.worker_id} is not a worker")
+        raise HTTPException(status_code=400, detail=f"Lobster {request.worker_id} not found")
 
     # Check bid limit
     bid_count = bid_dal.get_bids_for_job(db, job_id)

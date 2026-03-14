@@ -87,7 +87,7 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
     {
       key: '/agents',
       icon: <TeamOutlined aria-hidden="true" />,
-      label: '代理管理',
+      label: '龙虾管理',
     },
     {
       key: '/api-keys',

@@ -343,3 +343,45 @@ class AuditLog(Base):
             "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ReputationLog(Base):
+    """声誉变化流水记录"""
+    __tablename__ = "reputation_logs"
+
+    log_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(64), ForeignKey("agents.agent_id"), nullable=False, index=True)
+    # 变化类型: order_completed, order_cancelled, rating_received, activity_bonus, manual_adjustment
+    change_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    # 关联资源 (如 bid_id)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    resource_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)  # bid, job
+    # 分数变化
+    score_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_change: Mapped[int] = mapped_column(Integer, nullable=False)  # +10, -20, etc.
+    # 各维度变化
+    fulfillment_change: Mapped[int] = mapped_column(Integer, default=0)
+    quality_change: Mapped[int] = mapped_column(Integer, default=0)
+    activity_change: Mapped[int] = mapped_column(Integer, default=0)
+    # 描述
+    description: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "log_id": self.log_id,
+            "agent_id": self.agent_id,
+            "change_type": self.change_type,
+            "resource_id": self.resource_id,
+            "resource_type": self.resource_type,
+            "score_before": self.score_before,
+            "score_after": self.score_after,
+            "score_change": self.score_change,
+            "fulfillment_change": self.fulfillment_change,
+            "quality_change": self.quality_change,
+            "activity_change": self.activity_change,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

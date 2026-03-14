@@ -42,6 +42,13 @@ class AgentUpdate(BaseModel):
     rating: Optional[float] = None
 
 
+class AgentEdit(BaseModel):
+    """For editing agent details"""
+    name: Optional[str] = None
+    capabilities: Optional[List[str]] = None
+    description: Optional[str] = None
+
+
 class AgentResponse(AgentBase):
     status: str
     rating: float

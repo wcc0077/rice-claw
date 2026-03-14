@@ -63,15 +63,15 @@ def can_publish_job(agent: Agent) -> bool:
     """Check if an agent can publish a job.
 
     Rules:
-    - Only employers can publish jobs
+    - Any verified agent can publish jobs
 
     Args:
         agent: The agent requesting to publish
 
     Returns:
-        True if the agent is an employer
+        True if the agent can publish jobs
     """
-    return agent.agent_type == "employer"
+    return True
 
 
 def can_modify_job(agent: Agent, job: Job) -> bool:
@@ -119,9 +119,9 @@ def can_submit_bid(agent: Agent, job: Job) -> bool:
     """Check if an agent can submit a bid on a job.
 
     Rules:
-    - Only workers can bid
+    - Any agent can bid
     - Job must be OPEN
-    - Worker hasn't already bid
+    - Agent hasn't already bid
     - Bid limit not reached
 
     Args:
@@ -131,9 +131,6 @@ def can_submit_bid(agent: Agent, job: Job) -> bool:
     Returns:
         True if bidding is allowed
     """
-    if agent.agent_type != "worker":
-        return False
-
     if job.status != "OPEN":
         return False
 

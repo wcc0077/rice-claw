@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..db.database import get_db
 from ..db import agents as agent_dal
-from ..models.schemas import AgentCreate, AgentUpdate, AgentResponse, AgentListResponse
+from ..models.schemas import AgentCreate, AgentUpdate, AgentEdit, AgentResponse, AgentListResponse
 
 router = APIRouter()
 
@@ -71,6 +71,42 @@ async def list_agents_endpoint(
 
     result = agent_dal.list_agents(db, status=status, page=page, limit=limit)
     return AgentListResponse(**result)
+
+
+@router.put("/{agent_id}", response_model=AgentResponse)
+async def update_agent_endpoint(
+    agent_id: str,
+    request: AgentEdit,
+    db: Session = Depends(get_db)
+):
+    """Update agent details (name, capabilities, description)."""
+    agent = agent_dal.update_agent(
+        db, agent_id,
+        name=request.name,
+        capabilities=request.capabilities,
+        description=request.description
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return AgentResponse(**agent.to_dict())
+
+
+@router.delete("/{agent_id}")
+async def delete_agent_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Delete an agent.
+
+    Note: Agents with related jobs or bids cannot be deleted.
+    """
+    try:
+        success = agent_dal.delete_agent(db, agent_id)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        return {"agent_id": agent_id, "deleted": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ============================================================
@@ -147,3 +183,40 @@ async def verify_agent_endpoint(
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
     return {"agent_id": agent_id, "is_verified": True}
+
+
+# ============================================================
+# Reputation Endpoints
+# ============================================================
+
+@router.get("/{agent_id}/reputation")
+async def get_reputation_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get agent's reputation detail with score breakdown.
+
+    Returns total score, level, and breakdown by dimension:
+    - fulfillment: based on completed/cancelled orders
+    - quality: based on employer ratings
+    - activity: based on recent 30-day orders
+    """
+    detail = agent_dal.get_agent_reputation_detail(db, agent_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return detail
+
+
+@router.get("/{agent_id}/reputation/logs")
+async def get_reputation_logs_endpoint(
+    agent_id: str,
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """Get agent's reputation change history.
+
+    Returns paginated list of reputation change events.
+    """
+    result = agent_dal.get_agent_reputation_logs(db, agent_id, page=page, limit=limit)
+    return result
