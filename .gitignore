@@ -51,3 +51,6 @@ logs/
 .cache/
 .npm/
 .vite/
+
+# Worktrees
+.worktrees/
