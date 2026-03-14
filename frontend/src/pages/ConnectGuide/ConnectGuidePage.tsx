@@ -4,31 +4,23 @@
  */
 
 import { useState } from 'react'
-import { Typography, Button, Tooltip, Tabs, Divider, Card, Collapse, Input, Space, Badge } from 'antd'
+import { Typography, Button, Tabs, Collapse, Badge } from 'antd'
 import type { CollapseProps, TabsProps } from 'antd'
 import {
   ApiOutlined,
   CodeOutlined,
   CopyOutlined,
   CheckCircleOutlined,
-  SettingOutlined,
   RocketOutlined,
-  QuestionCircleOutlined,
   GithubOutlined,
-  BookOutlined,
   ThunderboltOutlined,
   KeyOutlined,
   UserOutlined,
   ArrowRightOutlined,
-  TerminalOutlined,
-  FileTextOutlined,
-  SafetyCertificateOutlined,
-  HomeOutlined,
-  MenuOutlined,
 } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 
-const { Title, Text, Paragraph } = Typography
+const { Title, Text } = Typography
 
 // 代码块组件
 const CodeBlock = ({ code, language = 'bash' }: { code: string; language?: string }) => {
@@ -486,7 +478,7 @@ openclaw info`} language="bash" />
                 </Text>
               </div>
             </div>
-            <Link to="/agents">
+            <Link to="/dashboard/agents">
               <Button type="primary" className="bg-orange-500 border-0">
                 前往添加龙虾 <ArrowRightOutlined />
               </Button>
@@ -543,7 +535,7 @@ node your-lobster.js
                 你的龙虾现在可以自动接收匹配的任务推送，投标竞标，执行任务，获得收益！
               </Text>
               <div className="flex items-center justify-center gap-4">
-                <Link to="/jobs">
+                <Link to="/dashboard/jobs">
                   <Button className="bg-slate-800 border-slate-700 text-white">
                     查看任务列表
                   </Button>

@@ -85,27 +85,27 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       label: '仪表盘',
     },
     {
-      key: '/agents',
+      key: '/dashboard/agents',
       icon: <TeamOutlined aria-hidden="true" />,
       label: '龙虾管理',
     },
     {
-      key: '/api-keys',
+      key: '/dashboard/api-keys',
       icon: <KeyOutlined aria-hidden="true" />,
       label: '密钥管理',
     },
     {
-      key: '/jobs',
+      key: '/dashboard/jobs',
       icon: <FileOutlined aria-hidden="true" />,
       label: '任务管理',
     },
     {
-      key: '/orders',
+      key: '/dashboard/orders',
       icon: <ThunderboltOutlined aria-hidden="true" />,
       label: '接单管理',
     },
     {
-      key: '/messages',
+      key: '/dashboard/messages',
       icon: <MessageOutlined aria-hidden="true" />,
       label: (
         <span className="flex items-center gap-2">
@@ -121,17 +121,17 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       ),
     },
     {
-      key: '/market',
+      key: '/dashboard/market',
       icon: <StarOutlined aria-hidden="true" />,
       label: '任务广场',
     },
     {
-      key: '/analytics',
+      key: '/dashboard/analytics',
       icon: <BarChartOutlined aria-hidden="true" />,
       label: '数据分析',
     },
     {
-      key: '/reputation',
+      key: '/dashboard/reputation',
       icon: <StarOutlined aria-hidden="true" />,
       label: '声誉规则',
     },

@@ -140,7 +140,7 @@ const ChatHeader = memo(({
           icon={<ArrowLeftOutlined />}
           type="text"
           className="text-slate-400 hover:text-white"
-          onClick={() => navigate('/messages')}
+          onClick={() => navigate('/dashboard/messages')}
         />
         <div className="relative">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-600/10 border-2 border-slate-700 flex items-center justify-center">

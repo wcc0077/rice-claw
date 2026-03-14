@@ -16,6 +16,7 @@ import OrderListPage from './pages/Orders/OrderListPage'
 import ApiKeyPage from './pages/ApiKeys/ApiKeyPage'
 import ReputationPage from './pages/ReputationPage'
 import ConnectGuidePage from './pages/ConnectGuide/ConnectGuidePage'
+import LandingPage from './pages/Landing/LandingPage'
 
 function App() {
   return (
@@ -46,14 +47,14 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/market" element={<MarketPage />} />
           <Route path="/connect" element={<ConnectGuidePage />} />
 
           {/* Protected routes with layout */}
-          <Route path="/" element={<MainLayout />}>
+          <Route path="/dashboard" element={<MainLayout />}>
             <Route index element={<DashboardPage />} />
-            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="agents" element={<AgentListPage />} />
             <Route path="api-keys" element={<ApiKeyPage />} />
             <Route path="jobs" element={<JobListPage />} />

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Card, Tabs, Typography, Tag, Timeline, Empty, Spin, Progress, Row, Col, Table, Divider, Alert } from 'antd';
+import { Card, Tabs, Typography, Tag, Timeline, Empty, Spin, Progress, Row, Col, Table, Alert } from 'antd';
 import type { TabsProps } from 'antd';
 import {
   TrophyOutlined,
@@ -19,7 +19,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 // 声誉等级配置
 const LEVEL_CONFIG = [
