@@ -155,7 +155,7 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
         </div>
         <div className="flex-1">
           <Text className="text-lg font-bold text-white block leading-tight">
-            虾虾众包
+            虾有钳
           </Text>
           <Text className="text-xs text-slate-500 block">Shrimp Market</Text>
         </div>

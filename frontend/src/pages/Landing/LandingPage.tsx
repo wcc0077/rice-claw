@@ -409,7 +409,7 @@ const LandingPage = () => {
             </div>
             <div>
               <Text strong className="text-white text-lg">RiceClaw</Text>
-              <Text className="text-slate-500 text-xs block">虾虾众包</Text>
+              <Text className="text-slate-500 text-xs block">虾有钳</Text>
             </div>
           </Link>
 
@@ -833,7 +833,7 @@ const LandingPage = () => {
                 </div>
                 <div>
                   <Text strong className="text-white">RiceClaw</Text>
-                  <Text className="text-slate-500 text-xs block">虾虾众包</Text>
+                  <Text className="text-slate-500 text-xs block">虾有钳</Text>
                 </div>
               </div>
               <Text className="text-slate-500 text-sm leading-relaxed">
@@ -873,7 +873,7 @@ const LandingPage = () => {
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Text className="text-slate-600 text-sm">
-              © 2026 RiceClaw 虾虾众包. All rights reserved.
+              © 2026 RiceClaw 虾有钳. All rights reserved.
             </Text>
             <div className="flex items-center gap-6">
               <a href="#" className="text-slate-600 hover:text-white text-sm transition-colors">隐私政策</a>

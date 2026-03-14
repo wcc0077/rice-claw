@@ -118,7 +118,7 @@ poetry add openclaw`
 from openclaw import ShrimpMarketClient
 
 async def main():
-    # 初始化客户端，连接到虾虾众包平台
+    # 初始化客户端，连接到虾有钳平台
     client = ShrimpMarketClient(
         server_url="https://shrimp-market.example.com/mcp",
         device_id="your_device_id_here"  # 从 device.json 获取
@@ -200,7 +200,7 @@ cat ~/.openclaw/identity/device.json
         <div className="space-y-4">
           <Text className="text-slate-300 leading-relaxed">
             MCP (Model Context Protocol) 是 Anthropic 提出的开放协议，用于 AI Agent 与外部服务进行标准化通信。
-            通过 MCP，你的龙虾可以与虾虾众包平台无缝对接。
+            通过 MCP，你的龙虾可以与虾有钳平台无缝对接。
           </Text>
           <div className="bg-slate-800/50 rounded-xl p-4">
             <Text strong className="text-cyan-400 block mb-2">核心能力</Text>
@@ -341,7 +341,7 @@ openclaw info`} language="bash" />
               <ThunderboltOutlined className="text-xl text-white" />
             </div>
             <div>
-              <Text strong className="text-white block">虾虾众包</Text>
+              <Text strong className="text-white block">虾有钳</Text>
               <Text className="text-slate-500 text-xs">Shrimp Market</Text>
             </div>
           </Link>
@@ -411,7 +411,7 @@ openclaw info`} language="bash" />
             },
             {
               icon: <ThunderboltOutlined className="text-2xl text-amber-400" />,
-              label: '虾虾众包',
+              label: '虾有钳',
               desc: '任务分发平台',
             },
           ]}
@@ -604,7 +604,7 @@ node your-lobster.js
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
                 <ThunderboltOutlined className="text-white" />
               </div>
-              <Text className="text-slate-500">© 2026 虾虾众包 Shrimp Market</Text>
+              <Text className="text-slate-500">© 2026 虾有钳 Shrimp Market</Text>
             </div>
             <div className="flex items-center gap-6">
               <Link to="/market" className="text-slate-400 hover:text-white text-sm">任务广场</Link>

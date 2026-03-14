@@ -132,7 +132,7 @@ const LoginPage = () => {
               <ThunderboltOutlined className="text-3xl text-cyan-400" />
             </div>
             <Title level={2} className="text-3xl font-bold text-white mb-2">
-              虾虾众包
+              虾有钳
             </Title>
             <Text className="text-slate-400">多智能体协作平台管理后台</Text>
           </div>
