@@ -8,7 +8,6 @@ from sqlalchemy import select, func
 
 from ..models.db_models import Agent
 from ..models.schemas import AgentCreate
-from ..auth.agent_auth import generate_api_key, hash_api_key, verify_api_key
 
 
 def create_agent(db: Session, agent: AgentCreate) -> Agent:
@@ -195,8 +194,7 @@ def update_agent_rating(db: Session, agent_id: str, rating: float) -> Optional[A
 def get_agent_by_api_key(db: Session, api_key: str) -> Optional[Agent]:
     """Get an agent by their API key.
 
-    This function validates the API key against the stored hash and returns
-    the agent if the key is valid.
+    Uses the embedded key_id for O(1) lookup, then verifies the hash.
 
     Args:
         db: Database session
@@ -205,34 +203,38 @@ def get_agent_by_api_key(db: Session, api_key: str) -> Optional[Agent]:
     Returns:
         Agent object if API key is valid, None otherwise
     """
-    # Get all agents with API keys (we need to check hashes)
-    agents_with_keys = db.execute(
-        select(Agent).where(Agent.api_key_hash.isnot(None))
-    ).scalars().all()
+    from ..auth.agent_auth import verify_api_key, extract_key_id
 
-    for agent in agents_with_keys:
-        if agent.api_key_hash and verify_api_key(api_key, agent.api_key_hash):
-            return agent
+    # Extract key_id for O(1) lookup
+    key_id = extract_key_id(api_key)
+    if not key_id:
+        return None
+
+    # Find agent by key_id (indexed column - fast lookup)
+    agent = db.execute(
+        select(Agent).where(Agent.api_key_id == key_id)
+    ).scalar_one_or_none()
+
+    if not agent or not agent.api_key_hash:
+        return None
+
+    # Verify the hash
+    if verify_api_key(api_key, agent.api_key_hash):
+        return agent
 
     return None
 
 
-def update_last_seen(db: Session, agent_id: str) -> Optional[Agent]:
+def update_last_seen(db: Session, agent: Agent) -> Agent:
     """Update the last_seen_at timestamp for an agent.
-
-    Called after each authenticated API/MCP request.
 
     Args:
         db: Database session
-        agent_id: The agent's ID
+        agent: The agent object (already fetched)
 
     Returns:
-        Updated agent object or None if not found
+        Updated agent object
     """
-    agent = get_agent(db, agent_id)
-    if not agent:
-        return None
-
     agent.last_seen_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(agent)
@@ -242,8 +244,8 @@ def update_last_seen(db: Session, agent_id: str) -> Optional[Agent]:
 def set_agent_api_key(db: Session, agent_id: str, test: bool = False) -> Optional[Dict[str, Any]]:
     """Generate and set a new API key for an agent.
 
-    This function generates a new API key, hashes it for storage,
-    and returns the plain text key (only shown once).
+    This function generates a new API key with an embedded key_id,
+    hashes it for storage, and returns the plain text key (only shown once).
 
     Args:
         db: Database session
@@ -256,16 +258,19 @@ def set_agent_api_key(db: Session, agent_id: str, test: bool = False) -> Optiona
     Warning:
         The plain text API key is only returned once. Store it securely!
     """
+    from ..auth.agent_auth import generate_api_key, hash_api_key
+
     agent = get_agent(db, agent_id)
     if not agent:
         return None
 
-    # Generate new API key
-    new_api_key = generate_api_key(test=test)
+    # Generate new API key with embedded key_id
+    new_api_key, key_id = generate_api_key(test=test)
     api_key_hash = hash_api_key(new_api_key)
 
-    # Store hash and timestamp
+    # Store key_id (indexed for fast lookup), hash, and timestamp
     now = datetime.now(timezone.utc)
+    agent.api_key_id = key_id
     agent.api_key_hash = api_key_hash
     agent.api_key_created_at = now
     db.commit()
@@ -307,6 +312,7 @@ def revoke_agent_api_key(db: Session, agent_id: str) -> bool:
     if not agent:
         return False
 
+    agent.api_key_id = None
     agent.api_key_hash = None
     agent.api_key_created_at = None
     db.commit()

@@ -5,6 +5,7 @@ from .agent_auth import (
     hash_api_key,
     verify_api_key,
     validate_api_key_format,
+    extract_key_id,
     AgentAuthContext,
 )
 

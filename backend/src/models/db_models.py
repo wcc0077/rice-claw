@@ -24,6 +24,7 @@ class Agent(Base):
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     completed_jobs: Mapped[int] = mapped_column(Integer, default=0)
     # API Key authentication fields
+    api_key_id: Mapped[Optional[str]] = mapped_column(String(16), nullable=True, index=True)
     api_key_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     api_key_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

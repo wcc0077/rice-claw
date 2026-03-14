@@ -71,3 +71,79 @@ async def list_agents_endpoint(
 
     result = agent_dal.list_agents(db, status=status, page=page, limit=limit)
     return AgentListResponse(**result)
+
+
+# ============================================================
+# API Key Management Endpoints
+# ============================================================
+
+@router.post("/{agent_id}/api-key")
+async def generate_api_key_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Generate a new API key for an agent.
+
+    This endpoint should be called by admins to generate API keys
+    for agents. The API key is only returned once - store it securely!
+
+    Returns:
+        Dict containing agent_id and the new api_key (plain text)
+
+    Warning:
+        The plain text API key is only shown once. Store it securely!
+    """
+    result = agent_dal.set_agent_api_key(db, agent_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return result
+
+
+@router.post("/{agent_id}/api-key/regenerate")
+async def regenerate_api_key_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Regenerate an agent's API key.
+
+    Invalidates the old key and generates a new one.
+    The API key is only returned once - store it securely!
+
+    Returns:
+        Dict containing agent_id and the new api_key (plain text)
+    """
+    result = agent_dal.regenerate_agent_api_key(db, agent_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return result
+
+
+@router.delete("/{agent_id}/api-key")
+async def revoke_api_key_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Revoke an agent's API key.
+
+    The agent will no longer be able to authenticate until a new key is generated.
+    """
+    success = agent_dal.revoke_agent_api_key(db, agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return {"agent_id": agent_id, "api_key_revoked": True}
+
+
+@router.post("/{agent_id}/verify")
+async def verify_agent_endpoint(
+    agent_id: str,
+    db: Session = Depends(get_db)
+):
+    """Mark an agent as verified.
+
+    This should be called after the agent owner has confirmed
+    their identity and the API key has been securely delivered.
+    """
+    agent = agent_dal.verify_agent(db, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    return {"agent_id": agent_id, "is_verified": True}

@@ -13,23 +13,34 @@ from typing import Optional, Tuple
 # API key prefix for identification
 API_KEY_PREFIX = "sm_live_"
 API_KEY_TEST_PREFIX = "sm_test_"
+# Key ID length (used for O(1) lookup)
+KEY_ID_LENGTH = 8
+# Characters for key_id (no underscores to avoid parsing issues)
+KEY_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 
 
-def generate_api_key(test: bool = False) -> str:
-    """Generate a secure API key.
+def generate_api_key(test: bool = False) -> Tuple[str, str]:
+    """Generate a secure API key with an embedded key ID.
 
-    Format: sm_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (live key)
-            sm_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (test key)
+    Format: sm_live_{key_id}_{random} (live key)
+            sm_test_{key_id}_{random} (test key)
+
+    The key_id is a short identifier used for O(1) database lookup.
+    The random part is the secret that gets hashed.
 
     Args:
         test: If True, generate a test key instead of a live key
 
     Returns:
-        A securely generated API key
+        Tuple of (api_key, key_id) where:
+        - api_key: The full API key (store securely, show once)
+        - key_id: The short identifier for database indexing
     """
     prefix = API_KEY_TEST_PREFIX if test else API_KEY_PREFIX
+    # Use URL-safe chars without underscore for key_id (avoids parsing issues)
+    key_id = ''.join(secrets.choice(KEY_ID_CHARS) for _ in range(KEY_ID_LENGTH))
     random_part = secrets.token_urlsafe(32)
-    return f"{prefix}{random_part}"
+    return f"{prefix}{key_id}_{random_part}", key_id
 
 
 def hash_api_key(api_key: str) -> str:
@@ -82,12 +93,46 @@ def validate_api_key_format(api_key: str) -> Tuple[bool, Optional[str]]:
     if not (api_key.startswith(API_KEY_PREFIX) or api_key.startswith(API_KEY_TEST_PREFIX)):
         return False, f"Invalid API key format. Must start with {API_KEY_PREFIX} or {API_KEY_TEST_PREFIX}"
 
-    # Check minimum length (prefix + at least 32 chars)
-    min_length = len(API_KEY_PREFIX) + 32
+    # Check minimum length (prefix + key_id + underscore + at least 32 chars)
+    min_length = len(API_KEY_PREFIX) + KEY_ID_LENGTH + 1 + 32
     if len(api_key) < min_length:
         return False, f"API key is too short. Minimum length is {min_length} characters"
 
     return True, None
+
+
+def extract_key_id(api_key: str) -> Optional[str]:
+    """Extract the key ID from an API key.
+
+    The key ID is embedded in the API key for O(1) database lookup.
+
+    Args:
+        api_key: The full API key
+
+    Returns:
+        The key ID if valid, None otherwise
+    """
+    if not api_key:
+        return None
+
+    # Determine prefix length
+    if api_key.startswith(API_KEY_PREFIX):
+        prefix_len = len(API_KEY_PREFIX)
+    elif api_key.startswith(API_KEY_TEST_PREFIX):
+        prefix_len = len(API_KEY_TEST_PREFIX)
+    else:
+        return None
+
+    # Extract key_id (format: prefix{key_id}_{random})
+    try:
+        after_prefix = api_key[prefix_len:]
+        key_id = after_prefix.split("_")[0]
+        if len(key_id) == KEY_ID_LENGTH:
+            return key_id
+    except (IndexError, ValueError):
+        pass
+
+    return None
 
 
 class AgentAuthContext:
