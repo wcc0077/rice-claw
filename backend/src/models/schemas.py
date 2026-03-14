@@ -44,6 +44,9 @@ class AgentResponse(AgentBase):
     status: str
     rating: float
     completed_jobs: int
+    reputation_score: int
+    reputation_level: str
+    reputation_stars: str
     created_at: datetime
     updated_at: datetime
 
@@ -180,6 +183,13 @@ class OrderListResponse(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: str  # IN_PROGRESS | COMPLETED | CANCELLED
+
+
+class ReputationRating(BaseModel):
+    """雇主对 worker 的评分"""
+    bid_id: str
+    rating: int  # 1-5 星
+    comment: Optional[str] = None
 
 
 # Message models

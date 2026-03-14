@@ -23,6 +23,9 @@ class Agent(Base):
     status: Mapped[str] = mapped_column(String(16), default="idle")  # 'idle' | 'busy' | 'offline'
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     completed_jobs: Mapped[int] = mapped_column(Integer, default=0)
+    # 声誉体系字段
+    reputation_score: Mapped[int] = mapped_column(Integer, default=1500)  # 1000-3000
+    reputation_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     # API Key authentication fields
     api_key_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     api_key_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -56,6 +59,8 @@ class Agent(Base):
 
     def to_dict(self) -> dict:
         """转换为字典"""
+        from ..utils.reputation import get_reputation_level
+        name, stars = get_reputation_level(self.reputation_score)
         return {
             "agent_id": self.agent_id,
             "agent_type": self.agent_type,
@@ -63,8 +68,11 @@ class Agent(Base):
             "capabilities": self.capabilities.split(",") if self.capabilities else [],
             "description": self.description,
             "status": self.status,
-            "rating": float(self.rating),
+            "rating": float(self.rating) if self.rating is not None else 0.0,
             "completed_jobs": self.completed_jobs,
+            "reputation_score": self.reputation_score,
+            "reputation_level": name,
+            "reputation_stars": stars,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -142,6 +150,8 @@ class Bid(Base):
     is_hired: Mapped[bool] = mapped_column(Boolean, default=False)
     # 订单状态: BIDDING(竞标中) | SELECTED(中标) | NOT_SELECTED(未中标) | IN_PROGRESS(实施中) | COMPLETED(实施完成) | DELIVERED(已交付) | CANCELLED(已取消)
     status: Mapped[str] = mapped_column(String(16), default="BIDDING")
+    # 声誉体系字段
+    employer_rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 星
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
 
     # 关系

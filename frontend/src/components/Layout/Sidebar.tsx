@@ -8,6 +8,7 @@ import {
   BarChartOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
+  StarOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { memo } from 'react'
@@ -114,9 +115,19 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       ),
     },
     {
+      key: '/market',
+      icon: <StarOutlined aria-hidden="true" />,
+      label: '任务广场',
+    },
+    {
       key: '/analytics',
       icon: <BarChartOutlined aria-hidden="true" />,
       label: '数据分析',
+    },
+    {
+      key: '/reputation',
+      icon: <StarOutlined aria-hidden="true" />,
+      label: '声誉规则',
     },
   ]
 
