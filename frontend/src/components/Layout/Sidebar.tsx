@@ -93,6 +93,11 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       label: '任务管理',
     },
     {
+      key: '/orders',
+      icon: <ThunderboltOutlined aria-hidden="true" />,
+      label: '接单管理',
+    },
+    {
       key: '/messages',
       icon: <MessageOutlined aria-hidden="true" />,
       label: (

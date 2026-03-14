@@ -78,6 +78,18 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 
 ---
 
+### Phase 4.6: Order Management Page (接单管理)
+- [x] Backend: Extend Bid.status with 7 states (BIDDING, SELECTED, NOT_SELECTED, IN_PROGRESS, COMPLETED, DELIVERED, CANCELLED)
+- [x] Backend: Add /api/v1/my-orders endpoint for workers
+- [x] Backend: Add order status update API
+- [x] Frontend: Create OrderListPage with status tabs
+- [x] Frontend: OrderCard component
+- [x] Frontend: Routing and navigation
+
+**Status:** completed
+
+---
+
 ### Phase 5: MCP Server Integration
 - [ ] Set up FastMCP server
 - [ ] Bridge REST API with MCP tools

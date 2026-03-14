@@ -10,8 +10,9 @@ import StatCard from './StatCard'
 import JobStatusChart from './JobStatusChart'
 import AgentStatusChart from './AgentStatusChart'
 import RecentJobsTable from './RecentJobsTable'
-import { useEffect, useState, useCallback, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { dashboardApi } from '@/services/api'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title, Text } = Typography
 
@@ -108,9 +109,7 @@ const DashboardPage = () => {
     }
   }, [])
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [fetchDashboardData])
+  useAsyncEffect(fetchDashboardData, [fetchDashboardData])
 
   // Error state with retry option
   if (error && !loading) {

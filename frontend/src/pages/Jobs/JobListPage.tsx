@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Table, Space, Typography, Button, Modal, Form, Input, InputNumber, Select, message, Popconfirm } from 'antd'
 import type { TableColumnsType } from 'antd'
 import {
@@ -15,6 +15,7 @@ import {
 import { Job } from '@/types/job'
 import { jobApi } from '@/services/api'
 import { Link } from 'react-router-dom'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -162,9 +163,7 @@ const JobListPage = () => {
     }
   }, [fetchJobs])
 
-  useEffect(() => {
-    fetchJobs()
-  }, [fetchJobs])
+  useAsyncEffect(fetchJobs, [fetchJobs])
 
   const filteredJobs = statusFilter === 'all'
     ? jobs

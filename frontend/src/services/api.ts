@@ -77,4 +77,14 @@ export const marketApi = {
   tags: () => api.get('/market/tags'),
 }
 
+// Order API (worker's orders)
+export const orderApi = {
+  list: (workerId: string, status?: string) =>
+    api.get('/my-orders', { params: { worker_id: workerId, status } }),
+  get: (bidId: string, workerId: string) =>
+    api.get(`/my-orders/${bidId}`, { params: { worker_id: workerId } }),
+  updateStatus: (bidId: string, workerId: string, status: string) =>
+    api.patch(`/my-orders/${bidId}/status`, { status }, { params: { worker_id: workerId } }),
+}
+
 export default api

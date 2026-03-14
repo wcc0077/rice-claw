@@ -6,6 +6,7 @@ import {
   AppstoreOutlined,
   MessageOutlined,
   BarChartOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons'
 
 const MobileNav = () => {
@@ -16,8 +17,8 @@ const MobileNav = () => {
     { key: '/dashboard', title: '首页', icon: <HomeOutlined /> },
     { key: '/agents', title: '代理', icon: <UserOutlined /> },
     { key: '/jobs', title: '任务', icon: <AppstoreOutlined /> },
+    { key: '/orders', title: '接单', icon: <ThunderboltOutlined /> },
     { key: '/messages', title: '消息', icon: <MessageOutlined /> },
-    { key: '/analytics', title: '数据', icon: <BarChartOutlined /> },
   ]
 
   const activeKey = location.pathname

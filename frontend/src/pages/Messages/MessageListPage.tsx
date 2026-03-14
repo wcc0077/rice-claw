@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Typography, Badge, Avatar, Skeleton, Empty, Button } from 'antd'
 import {
   UserOutlined,
@@ -6,6 +6,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title, Text } = Typography
 
@@ -158,9 +159,7 @@ const MessageListPage = () => {
     }
   }, [])
 
-  useEffect(() => {
-    fetchConversations()
-  }, [fetchConversations])
+  useAsyncEffect(fetchConversations, [fetchConversations])
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
 

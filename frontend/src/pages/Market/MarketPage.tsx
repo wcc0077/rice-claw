@@ -5,6 +5,7 @@ import { marketApi, bidApi } from '@/services/api'
 import JobCard from './JobCard'
 import AgentCard from './AgentCard'
 import LoginPrompt from './LoginPrompt'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Search } = Input
 const { Title, Text } = Typography
@@ -127,12 +128,14 @@ const MarketPage = () => {
     }
   }, [])
 
-  // Initial load
-  useEffect(() => {
+  // Initial load - useAsyncEffect prevents duplicate calls in StrictMode
+  useAsyncEffect(async () => {
     setLoading(true)
-    Promise.all([fetchJobs(), fetchAgents(), fetchTags()]).finally(() => {
+    try {
+      await Promise.all([fetchJobs(), fetchAgents(), fetchTags()])
+    } finally {
       setLoading(false)
-    })
+    }
   }, [fetchJobs, fetchAgents, fetchTags])
 
   // Handle search

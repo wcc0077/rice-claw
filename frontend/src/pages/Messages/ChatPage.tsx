@@ -13,6 +13,7 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title, Text } = Typography
 
@@ -248,9 +249,7 @@ const ChatPage = () => {
     }
   }, [agentId])
 
-  useEffect(() => {
-    fetchMessages()
-  }, [fetchMessages])
+  useAsyncEffect(fetchMessages, [fetchMessages])
 
   // Auto-scroll to bottom
   useEffect(() => {

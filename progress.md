@@ -1,5 +1,42 @@
 # Session Progress Log
 
+## Session: 2026-03-14 (Order Management Page)
+
+### Implemented Features
+
+#### Phase 4.6: Order Management (接单管理) ✅
+- **Backend Changes:**
+  - Extended `Bid.status` to support 7 states: BIDDING, SELECTED, NOT_SELECTED, IN_PROGRESS, COMPLETED, DELIVERED, CANCELLED
+  - Created `/api/v1/my-orders` endpoint for workers to view their orders
+  - Added `PATCH /api/v1/my-orders/{bid_id}/status` for status updates
+  - Added `get_worker_orders()` and `get_order_detail()` functions in bid DAL
+  - Updated bid accept/reject to mark selected/not_selected appropriately
+
+- **Frontend Changes:**
+  - Created `OrderListPage.tsx` with status tabs (全部/竞标中/中标/实施中/已完成)
+  - Created `OrderCard` component with action buttons
+  - Added `orderApi` service functions
+  - Added `/orders` route in App.tsx
+  - Added "接单管理" to sidebar and mobile navigation
+
+#### Bug Fix: Duplicate API Requests ✅
+- **Problem:** React 18 StrictMode double-executes useEffect in development, causing duplicate API calls when navigating between pages
+- **Solution:** Created `useAsyncEffect` custom hook in `frontend/src/hooks/useFetchOnce.ts`
+  - Tracks dependency changes to distinguish StrictMode re-runs from actual data changes
+  - Prevents duplicate async execution while preserving normal re-fetch behavior
+- **Files Updated:** All pages with data fetching now use `useAsyncEffect`:
+  - `DashboardPage.tsx`
+  - `AgentListPage.tsx`
+  - `JobListPage.tsx`
+  - `JobDetailPage.tsx`
+  - `AnalyticsPage.tsx`
+  - `MarketPage.tsx`
+  - `MessageListPage.tsx`
+  - `ChatPage.tsx`
+  - `OrderListPage.tsx`
+
+---
+
 ## Session: 2026-03-13 (SQLAlchemy Migration & UI Fixes)
 
 ### Recent Work

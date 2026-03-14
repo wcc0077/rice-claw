@@ -139,6 +139,49 @@ class BidListResponse(BaseModel):
     current_count: int
 
 
+# Order models (from worker's perspective)
+ORDER_STATUS_LABELS = {
+    "BIDDING": "竞标中",
+    "SELECTED": "中标",
+    "NOT_SELECTED": "未中标",
+    "IN_PROGRESS": "实施中",
+    "COMPLETED": "实施完成",
+    "DELIVERED": "已交付",
+    "CANCELLED": "已取消",
+}
+
+
+class OrderResponse(BaseModel):
+    """Worker's order view - combines bid + job info"""
+    bid_id: str
+    job_id: str
+    job_title: str
+    job_description: Optional[str] = None
+    employer_id: str
+    employer_name: Optional[str] = None
+    status: str
+    status_label: str
+    proposal: Optional[str] = None
+    quote_amount: Optional[int] = None
+    quote_currency: str = "CNY"
+    delivery_days: Optional[int] = None
+    submitted_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OrderListResponse(BaseModel):
+    orders: List[OrderResponse]
+    pagination: Pagination
+    status_counts: Dict[str, int]
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str  # IN_PROGRESS | COMPLETED | CANCELLED
+
+
 # Message models
 class MessageBase(BaseModel):
     job_id: str

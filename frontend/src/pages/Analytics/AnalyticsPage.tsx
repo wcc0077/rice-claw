@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Card, Typography, Row, Col, DatePicker, Table } from 'antd'
 import { Line } from '@ant-design/plots'
 import type { DailyAnalytics } from '@/types/dashboard'
 import { adminApi } from '@/services/api'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
@@ -11,11 +12,7 @@ const AnalyticsPage = () => {
   const [analytics, setAnalytics] = useState<DailyAnalytics[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const res = await adminApi.dailyAnalytics()
       setAnalytics(res.data || [])
@@ -24,7 +21,9 @@ const AnalyticsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useAsyncEffect(fetchAnalytics, [fetchAnalytics])
 
   if (loading) {
     return <div>加载中...</div>

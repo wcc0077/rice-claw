@@ -12,6 +12,7 @@ import ChatPage from './pages/Messages/ChatPage'
 import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import LoginPage from './pages/Login/LoginPage'
 import MarketPage from './pages/Market/MarketPage'
+import OrderListPage from './pages/Orders/OrderListPage'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
             <Route path="agents" element={<AgentListPage />} />
             <Route path="jobs" element={<JobListPage />} />
             <Route path="jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="orders" element={<OrderListPage />} />
             <Route path="messages" element={<MessageListPage />} />
             <Route path="messages/:agentId" element={<ChatPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />

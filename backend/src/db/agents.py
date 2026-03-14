@@ -2,12 +2,13 @@
 
 import uuid
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
 from ..models.db_models import Agent
 from ..models.schemas import AgentCreate
+from ..auth.agent_auth import generate_api_key, hash_api_key, verify_api_key
 
 
 def create_agent(db: Session, agent: AgentCreate) -> Agent:
@@ -182,6 +183,151 @@ def update_agent_rating(db: Session, agent_id: str, rating: float) -> Optional[A
 
     agent.rating = round(new_rating, 2)
     agent.completed_jobs = completed_jobs + 1
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+# =============================================================================
+# API Key Authentication Functions
+# =============================================================================
+
+def get_agent_by_api_key(db: Session, api_key: str) -> Optional[Agent]:
+    """Get an agent by their API key.
+
+    This function validates the API key against the stored hash and returns
+    the agent if the key is valid.
+
+    Args:
+        db: Database session
+        api_key: The plain text API key to validate
+
+    Returns:
+        Agent object if API key is valid, None otherwise
+    """
+    # Get all agents with API keys (we need to check hashes)
+    agents_with_keys = db.execute(
+        select(Agent).where(Agent.api_key_hash.isnot(None))
+    ).scalars().all()
+
+    for agent in agents_with_keys:
+        if agent.api_key_hash and verify_api_key(api_key, agent.api_key_hash):
+            return agent
+
+    return None
+
+
+def update_last_seen(db: Session, agent_id: str) -> Optional[Agent]:
+    """Update the last_seen_at timestamp for an agent.
+
+    Called after each authenticated API/MCP request.
+
+    Args:
+        db: Database session
+        agent_id: The agent's ID
+
+    Returns:
+        Updated agent object or None if not found
+    """
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return None
+
+    agent.last_seen_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+def set_agent_api_key(db: Session, agent_id: str, test: bool = False) -> Optional[Dict[str, Any]]:
+    """Generate and set a new API key for an agent.
+
+    This function generates a new API key, hashes it for storage,
+    and returns the plain text key (only shown once).
+
+    Args:
+        db: Database session
+        agent_id: The agent's ID
+        test: If True, generate a test key instead of a live key
+
+    Returns:
+        Dict with agent_id and the new api_key (plain text), or None if agent not found
+
+    Warning:
+        The plain text API key is only returned once. Store it securely!
+    """
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return None
+
+    # Generate new API key
+    new_api_key = generate_api_key(test=test)
+    api_key_hash = hash_api_key(new_api_key)
+
+    # Store hash and timestamp
+    now = datetime.now(timezone.utc)
+    agent.api_key_hash = api_key_hash
+    agent.api_key_created_at = now
+    db.commit()
+    db.refresh(agent)
+
+    return {
+        "agent_id": agent_id,
+        "api_key": new_api_key,  # Plain text - only shown once!
+        "created_at": now.isoformat(),
+    }
+
+
+def regenerate_agent_api_key(db: Session, agent_id: str) -> Optional[Dict[str, Any]]:
+    """Regenerate an agent's API key (alias for set_agent_api_key).
+
+    Invalidates the old key and generates a new one.
+
+    Args:
+        db: Database session
+        agent_id: The agent's ID
+
+    Returns:
+        Dict with agent_id and the new api_key (plain text), or None if agent not found
+    """
+    return set_agent_api_key(db, agent_id)
+
+
+def revoke_agent_api_key(db: Session, agent_id: str) -> bool:
+    """Revoke an agent's API key.
+
+    Args:
+        db: Database session
+        agent_id: The agent's ID
+
+    Returns:
+        True if revoked, False if agent not found
+    """
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return False
+
+    agent.api_key_hash = None
+    agent.api_key_created_at = None
+    db.commit()
+    return True
+
+
+def verify_agent(db: Session, agent_id: str) -> Optional[Agent]:
+    """Mark an agent as verified.
+
+    Args:
+        db: Database session
+        agent_id: The agent's ID
+
+    Returns:
+        Updated agent or None if not found
+    """
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return None
+
+    agent.is_verified = True
     db.commit()
     db.refresh(agent)
     return agent

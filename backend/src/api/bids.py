@@ -55,13 +55,7 @@ async def create_bid_endpoint(
 
         bid = bid_dal.create_bid(db, bid_data)
         if bid:
-            result = bid.to_dict()
-            result["quote"] = {
-                "amount": bid.quote_amount,
-                "currency": bid.quote_currency,
-                "delivery_days": bid.delivery_days,
-            }
-            return BidResponse(**result)
+            return BidResponse(**bid.to_dict_with_quote())
         raise HTTPException(status_code=500, detail="Failed to create bid")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -95,7 +89,7 @@ async def accept_bid_endpoint(
     bid_id: str,
     db: Session = Depends(get_db)
 ):
-    """Accept a bid."""
+    """Accept a bid (marks as SELECTED, others as NOT_SELECTED)."""
     job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
@@ -109,20 +103,18 @@ async def accept_bid_endpoint(
     if bid.is_hired:
         raise HTTPException(status_code=400, detail="Bid already accepted")
 
-    # Update bid status
-    updated_bid = bid_dal.update_bid_status(db, bid_id, "ACCEPTED", is_hired=True)
+    # Mark this bid as SELECTED
+    updated_bid = bid_dal.update_bid_status(db, bid_id, "SELECTED", is_hired=True)
+    if not updated_bid:
+        raise HTTPException(status_code=500, detail="Failed to update bid status")
+
+    # Bulk update other bids to NOT_SELECTED (single query instead of N queries)
+    bid_dal.bulk_update_bids_status(db, job_id, bid_id, "NOT_SELECTED")
 
     # Update job status to active
     job_dal.update_job(db, job_id, {"status": "ACTIVE"})
 
-    result = updated_bid.to_dict()
-    result["quote"] = {
-        "amount": updated_bid.quote_amount,
-        "currency": updated_bid.quote_currency,
-        "delivery_days": updated_bid.delivery_days,
-    }
-
-    return {"message": "Bid accepted", "bid": BidResponse(**result)}
+    return {"message": "Bid accepted", "bid": BidResponse(**updated_bid.to_dict_with_quote())}
 
 
 @router.post("/{job_id}/{bid_id}/reject")
@@ -131,7 +123,7 @@ async def reject_bid_endpoint(
     bid_id: str,
     db: Session = Depends(get_db)
 ):
-    """Reject a bid."""
+    """Reject a bid (marks as NOT_SELECTED)."""
     job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
@@ -142,13 +134,8 @@ async def reject_bid_endpoint(
     if bid.job_id != job_id:
         raise HTTPException(status_code=400, detail="Bid does not belong to job")
 
-    updated_bid = bid_dal.update_bid_status(db, bid_id, "REJECTED", is_hired=False)
+    updated_bid = bid_dal.update_bid_status(db, bid_id, "NOT_SELECTED", is_hired=False)
+    if not updated_bid:
+        raise HTTPException(status_code=500, detail="Failed to update bid status")
 
-    result = updated_bid.to_dict()
-    result["quote"] = {
-        "amount": updated_bid.quote_amount,
-        "currency": updated_bid.quote_currency,
-        "delivery_days": updated_bid.delivery_days,
-    }
-
-    return {"message": "Bid rejected", "bid": BidResponse(**result)}
+    return {"message": "Bid rejected", "bid": BidResponse(**updated_bid.to_dict_with_quote())}

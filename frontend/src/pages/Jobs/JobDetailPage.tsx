@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card, Typography, Tag, Space, Tabs, Table, Button, message, Avatar } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { Job } from '@/types/job'
 import { Bid } from '@/types/bid'
 import { jobApi, bidApi } from '@/services/api'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Title, Text } = Typography
 
@@ -15,13 +16,7 @@ const JobDetailPage = () => {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('1')
 
-  useEffect(() => {
-    if (jobId) {
-      fetchJobDetail()
-    }
-  }, [jobId])
-
-  const fetchJobDetail = async () => {
+  const fetchJobDetail = useCallback(async () => {
     if (!jobId) return
     try {
       const [jobRes, bidsRes] = await Promise.all([
@@ -35,7 +30,9 @@ const JobDetailPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [jobId])
+
+  useAsyncEffect(fetchJobDetail, [fetchJobDetail])
 
   const handleAcceptBid = async (bidId: string) => {
     if (!jobId) return

@@ -3,8 +3,8 @@
 import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select, func, update
 
 from ..models.db_models import Bid, Job, Agent
 
@@ -79,92 +79,39 @@ def get_bid(db: Session, bid_id: str) -> Optional[Bid]:
 
 
 def get_bid_dict(db: Session, bid_id: str) -> Optional[Dict[str, Any]]:
-    """获取单个竞标（字典格式）
-
-    Args:
-        db: 数据库会话
-        bid_id: 竞标ID
-
-    Returns:
-        竞标字典或 None
-    """
+    """获取单个竞标（字典格式）"""
     bid = get_bid(db, bid_id)
     if not bid:
         return None
-
-    result = bid.to_dict()
-    # 添加报价结构
-    result["quote"] = {
-        "amount": bid.quote_amount,
-        "currency": bid.quote_currency,
-        "delivery_days": bid.delivery_days,
-    }
-    return result
+    return bid.to_dict_with_quote()
 
 
 def get_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
-    """获取任务的所有竞标
-
-    Args:
-        db: 数据库会话
-        job_id: 任务ID
-
-    Returns:
-        竞标字典列表
-    """
+    """获取任务的所有竞标"""
     bids = db.execute(
         select(Bid)
         .where(Bid.job_id == job_id)
         .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
     ).scalars().all()
 
-    results = []
-    for bid in bids:
-        result = bid.to_dict()
-        result["quote"] = {
-            "amount": bid.quote_amount,
-            "currency": bid.quote_currency,
-            "delivery_days": bid.delivery_days,
-        }
-        results.append(result)
-
-    return results
+    return [bid.to_dict_with_quote() for bid in bids]
 
 
 def get_bids_with_worker_info(db: Session, job_id: str) -> List[Dict[str, Any]]:
-    """获取任务的竞标（包含工人信息）
-
-    Args:
-        db: 数据库会话
-        job_id: 任务ID
-
-    Returns:
-        竞标字典列表（包含 worker_name 和 worker_rating）
-    """
+    """获取任务的竞标（包含工人信息）- 使用 eager loading 避免 N+1 查询"""
     bids = db.execute(
         select(Bid)
+        .options(selectinload(Bid.worker))
         .where(Bid.job_id == job_id)
         .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
     ).scalars().all()
 
     results = []
     for bid in bids:
-        result = bid.to_dict()
-        result["quote"] = {
-            "amount": bid.quote_amount,
-            "currency": bid.quote_currency,
-            "delivery_days": bid.delivery_days,
-        }
-
-        # 获取工人信息
-        worker = db.execute(
-            select(Agent).where(Agent.agent_id == bid.worker_id)
-        ).scalar_one_or_none()
-
-        if worker:
-            result["worker_name"] = worker.name
-            result["worker_rating"] = float(worker.rating)
-
+        result = bid.to_dict_with_quote()
+        if bid.worker:
+            result["worker_name"] = bid.worker.name
+            result["worker_rating"] = float(bid.worker.rating)
         results.append(result)
 
     return results
@@ -181,7 +128,7 @@ def update_bid_status(
     Args:
         db: 数据库会话
         bid_id: 竞标ID
-        status: 新状态 ('ACCEPTED' | 'REJECTED' | 'PENDING')
+        status: 新状态
         is_hired: 是否被雇佣
 
     Returns:
@@ -190,7 +137,18 @@ def update_bid_status(
     Raises:
         ValueError: 无效的状态值
     """
-    valid_statuses = ["ACCEPTED", "REJECTED", "PENDING"]
+    # 新的订单状态
+    valid_statuses = [
+        "BIDDING",        # 竞标中
+        "SELECTED",       # 中标
+        "NOT_SELECTED",   # 未中标
+        "IN_PROGRESS",    # 实施中
+        "COMPLETED",      # 实施完成
+        "DELIVERED",      # 已交付
+        "CANCELLED",      # 已取消
+        # 向后兼容旧状态
+        "PENDING", "ACCEPTED", "REJECTED"
+    ]
     if status not in valid_statuses:
         raise ValueError(f"Invalid status: {status}")
 
@@ -213,45 +171,18 @@ def update_bid_status_dict(
 ) -> Optional[Dict[str, Any]]:
     """更新竞标状态（返回字典）"""
     bid = update_bid_status(db, bid_id, status, is_hired)
-    if not bid:
-        return None
-
-    result = bid.to_dict()
-    result["quote"] = {
-        "amount": bid.quote_amount,
-        "currency": bid.quote_currency,
-        "delivery_days": bid.delivery_days,
-    }
-    return result
+    return bid.to_dict_with_quote() if bid else None
 
 
 def get_hired_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
-    """获取任务中被雇佣的竞标
-
-    Args:
-        db: 数据库会话
-        job_id: 任务ID
-
-    Returns:
-        竞标字典列表
-    """
+    """获取任务中被雇佣的竞标"""
     bids = db.execute(
         select(Bid)
         .where(Bid.job_id == job_id)
         .where(Bid.is_hired == True)
     ).scalars().all()
 
-    results = []
-    for bid in bids:
-        result = bid.to_dict()
-        result["quote"] = {
-            "amount": bid.quote_amount,
-            "currency": bid.quote_currency,
-            "delivery_days": bid.delivery_days,
-        }
-        results.append(result)
-
-    return results
+    return [bid.to_dict_with_quote() for bid in bids]
 
 
 # =============================================================================
@@ -286,3 +217,161 @@ def row_to_bid(row) -> Dict[str, Any]:
         "status": row["status"],
         "submitted_at": row["submitted_at"],
     }
+
+
+# =============================================================================
+# 订单相关函数 (Order functions)
+# =============================================================================
+
+ORDER_STATUS_LABELS = {
+    "BIDDING": "竞标中",
+    "SELECTED": "中标",
+    "NOT_SELECTED": "未中标",
+    "IN_PROGRESS": "实施中",
+    "COMPLETED": "实施完成",
+    "DELIVERED": "已交付",
+    "CANCELLED": "已取消",
+    # 向后兼容
+    "PENDING": "竞标中",
+    "ACCEPTED": "中标",
+    "REJECTED": "未中标",
+}
+
+# Legacy status normalization mapping
+STATUS_NORMALIZE = {
+    "PENDING": "BIDDING",
+    "ACCEPTED": "SELECTED",
+    "REJECTED": "NOT_SELECTED",
+}
+
+
+def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Agent] = None) -> Dict[str, Any]:
+    """构建订单字典的辅助函数"""
+    return {
+        "bid_id": bid.bid_id,
+        "job_id": bid.job_id,
+        "job_title": job.title if job else "Unknown Job",
+        "job_description": job.description if job else None,
+        "employer_id": job.employer_id if job else None,
+        "employer_name": employer.name if employer else None,
+        "status": bid.status,
+        "status_label": ORDER_STATUS_LABELS.get(bid.status, bid.status),
+        "proposal": bid.proposal,
+        "quote_amount": bid.quote_amount,
+        "quote_currency": bid.quote_currency,
+        "delivery_days": bid.delivery_days,
+        "submitted_at": bid.submitted_at.isoformat() if bid.submitted_at else None,
+    }
+
+
+def get_worker_orders(
+    db: Session,
+    worker_id: str,
+    status: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10
+) -> Dict[str, Any]:
+    """获取工人的订单列表 - 使用 eager loading 避免 N+1 查询"""
+    # 构建基础查询
+    base_query = select(Bid).where(Bid.worker_id == worker_id)
+
+    # 状态过滤 - 支持新旧状态名称
+    if status:
+        legacy_status = None
+        if status == "BIDDING":
+            legacy_status = "PENDING"
+        elif status == "SELECTED":
+            legacy_status = "ACCEPTED"
+        elif status == "NOT_SELECTED":
+            legacy_status = "REJECTED"
+
+        if legacy_status:
+            base_query = base_query.where(
+                (Bid.status == status) | (Bid.status == legacy_status)
+            )
+        else:
+            base_query = base_query.where(Bid.status == status)
+
+    # 计算总数
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total = db.execute(count_query).scalar() or 0
+
+    # 分页查询 - 使用 selectinload 预加载 job 和 employer
+    offset = (page - 1) * limit
+    orders_query = (
+        base_query
+        .options(selectinload(Bid.job).selectinload(Job.employer))
+        .order_by(Bid.submitted_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    bids = db.execute(orders_query).scalars().all()
+
+    # 获取状态统计
+    status_counts_query = (
+        select(Bid.status, func.count().label("count"))
+        .where(Bid.worker_id == worker_id)
+        .group_by(Bid.status)
+    )
+    status_counts_result = db.execute(status_counts_query).all()
+    raw_counts = {row.status: row.count for row in status_counts_result}
+    status_counts = {}
+    for st, count in raw_counts.items():
+        normalized = STATUS_NORMALIZE.get(st, st)
+        status_counts[normalized] = status_counts.get(normalized, 0) + count
+
+    # 构建订单列表 - 无需额外查询
+    orders = [_build_order_dict(bid, bid.job, bid.job.employer if bid.job else None) for bid in bids]
+
+    return {
+        "orders": orders,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "has_more": total > page * limit,
+        },
+        "status_counts": status_counts,
+    }
+
+
+def bulk_update_bids_status(
+    db: Session,
+    job_id: str,
+    exclude_bid_id: str,
+    new_status: str = "NOT_SELECTED"
+) -> int:
+    """批量更新任务的其他竞标状态
+
+    Args:
+        db: 数据库会话
+        job_id: 任务ID
+        exclude_bid_id: 排除的竞标ID
+        new_status: 新状态
+
+    Returns:
+        更新的记录数
+    """
+    result = db.execute(
+        update(Bid)
+        .where(Bid.job_id == job_id)
+        .where(Bid.bid_id != exclude_bid_id)
+        .where(Bid.status == "BIDDING")
+        .values(status=new_status, is_hired=False)
+    )
+    db.commit()
+    return result.rowcount
+
+
+def get_order_detail(db: Session, bid_id: str, worker_id: str) -> Optional[Dict[str, Any]]:
+    """获取订单详情 - 使用 eager loading 避免 N+1 查询"""
+    bid = db.execute(
+        select(Bid)
+        .options(selectinload(Bid.job).selectinload(Job.employer))
+        .where(Bid.bid_id == bid_id, Bid.worker_id == worker_id)
+    ).scalar_one_or_none()
+
+    if not bid:
+        return None
+
+    return _build_order_dict(bid, bid.job, bid.job.employer if bid.job else None)

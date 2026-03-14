@@ -23,6 +23,11 @@ class Agent(Base):
     status: Mapped[str] = mapped_column(String(16), default="idle")  # 'idle' | 'busy' | 'offline'
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     completed_jobs: Mapped[int] = mapped_column(Integer, default=0)
+    # API Key authentication fields
+    api_key_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    api_key_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -135,7 +140,8 @@ class Bid(Base):
     delivery_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     portfolio_links: Mapped[str] = mapped_column(Text, default="")  # 逗号分隔
     is_hired: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String(16), default="PENDING")  # 'PENDING' | 'ACCEPTED' | 'REJECTED'
+    # 订单状态: BIDDING(竞标中) | SELECTED(中标) | NOT_SELECTED(未中标) | IN_PROGRESS(实施中) | COMPLETED(实施完成) | DELIVERED(已交付) | CANCELLED(已取消)
+    status: Mapped[str] = mapped_column(String(16), default="BIDDING")
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
 
     # 关系
@@ -157,6 +163,16 @@ class Bid(Base):
             "status": self.status,
             "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
         }
+
+    def to_dict_with_quote(self) -> dict:
+        """转换为字典（包含 quote 结构）"""
+        result = self.to_dict()
+        result["quote"] = {
+            "amount": self.quote_amount,
+            "currency": self.quote_currency,
+            "delivery_days": self.delivery_days,
+        }
+        return result
 
 
 class Message(Base):
@@ -268,5 +284,45 @@ class AdminUser(Base):
             "username": self.username,
             "role": self.role,
             "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AuditLog(Base):
+    """审计日志模型 - 记录所有 API 和 MCP 调用"""
+    __tablename__ = "audit_logs"
+
+    log_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    agent_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)  # tool_call, api_request
+    resource_type: Mapped[str] = mapped_column(String(32), nullable=True)  # job, bid, message, agent
+    resource_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    request_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON
+    response_status: Mapped[int] = mapped_column(Integer, default=200)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        import json
+        request_data_parsed = None
+        if self.request_data:
+            try:
+                request_data_parsed = json.loads(self.request_data)
+            except json.JSONDecodeError:
+                request_data_parsed = self.request_data
+
+        return {
+            "log_id": self.log_id,
+            "agent_id": self.agent_id,
+            "action": self.action,
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "ip_address": self.ip_address,
+            "request_data": request_data_parsed,
+            "response_status": self.response_status,
+            "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

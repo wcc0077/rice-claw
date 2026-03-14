@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Table, Space, Typography, Input, Button, Modal, Form, Select, message, Avatar, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import {
@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons'
 import { Agent } from '@/types/agent'
 import { agentApi } from '@/services/api'
+import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Search } = Input
 const { Title, Text } = Typography
@@ -194,9 +195,7 @@ const AgentListPage = () => {
     }
   }, [])
 
-  useEffect(() => {
-    fetchAgents()
-  }, [fetchAgents])
+  useAsyncEffect(fetchAgents, [fetchAgents])
 
   const filteredAgents = agents.filter((agent) =>
     agent.name.toLowerCase().includes(searchText.toLowerCase()) ||
