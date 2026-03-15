@@ -4,7 +4,6 @@ import type { TableColumnsType } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
-  CloseCircleOutlined,
   CheckCircleOutlined,
   SyncOutlined,
   ClockCircleOutlined,
@@ -152,17 +151,6 @@ const JobListPage = () => {
       setLoading(false)
     }
   }, [statusFilter])
-
-  const handleCloseJob = useCallback(async (jobId: string) => {
-    try {
-      await jobApi.update(jobId, { status: 'CLOSED' })
-      message.success('任务已关闭')
-      fetchJobs()
-    } catch (err) {
-      console.error('Failed to close job:', err)
-      message.error('关闭任务失败')
-    }
-  }, [fetchJobs])
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     try {

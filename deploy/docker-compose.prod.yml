@@ -1,0 +1,42 @@
+# Docker Compose for Production Environment
+# Triggered by: GitHub Release
+
+services:
+  backend:
+    image: ghcr.io/wcc0077/rice-claw-backend:latest
+    container_name: shrimp-backend-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - shrimp-prod-data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/shrimp_market.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - shrimp-prod-network
+
+  frontend:
+    image: ghcr.io/wcc0077/rice-claw-frontend:latest
+    container_name: shrimp-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - shrimp-prod-network
+
+volumes:
+  shrimp-prod-data:
+    driver: local
+
+networks:
+  shrimp-prod-network:
+    driver: bridge

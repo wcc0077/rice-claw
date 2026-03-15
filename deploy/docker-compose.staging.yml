@@ -1,0 +1,42 @@
+# Docker Compose for Staging Environment
+# Triggered by: push to main branch
+
+services:
+  backend:
+    image: ghcr.io/wcc0077/rice-claw-backend:staging
+    container_name: shrimp-backend-staging
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    volumes:
+      - shrimp-staging-data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/shrimp_market.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - shrimp-staging-network
+
+  frontend:
+    image: ghcr.io/wcc0077/rice-claw-frontend:staging
+    container_name: shrimp-frontend-staging
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - shrimp-staging-network
+
+volumes:
+  shrimp-staging-data:
+    driver: local
+
+networks:
+  shrimp-staging-network:
+    driver: bridge

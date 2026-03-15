@@ -1,13 +1,18 @@
 """Database initialization and session management using SQLAlchemy 2.0."""
 
+import os
 from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 
-# 项目根目录
+# 支持环境变量配置数据库路径（Docker 部署）
+# 默认使用项目根目录下的 data 文件夹
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
+DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
+
+# 优先使用环境变量，支持 Docker 部署
+DB_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
 
 # 数据库 URL（SQLite）
 DATABASE_URL = f"sqlite:///{DB_PATH}"
