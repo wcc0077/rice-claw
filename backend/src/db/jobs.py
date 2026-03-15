@@ -4,7 +4,7 @@ import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from ..models.db_models import Job, Bid
 
@@ -192,21 +192,34 @@ def update_job_dict(db: Session, job_id: str, updates: Dict[str, Any]) -> Option
     return result
 
 
-def delete_job(db: Session, job_id: str) -> bool:
-    """删除任务
+def delete_job(db: Session, job_id: str, employer_id: str | None = None) -> bool:
+    """删除任务（软删除）
 
     Args:
         db: 数据库会话
         job_id: 任务ID
+        employer_id: 雇主ID（可选，用于权限验证）
 
     Returns:
         是否删除成功
+
+    Raises:
+        ValueError: 任务不存在或权限不足或任务状态不允许删除
     """
     job = get_job(db, job_id)
     if not job:
-        return False
+        raise ValueError(f"Job {job_id} not found")
 
-    db.delete(job)
+    # 权限验证
+    if employer_id and job.employer_id != employer_id:
+        raise ValueError("You can only delete your own jobs")
+
+    # 状态验证：只有 OPEN 状态的任务可以删除
+    if job.status not in ["OPEN", "CLOSED", "REJECTED"]:
+        raise ValueError(f"Cannot delete job with status '{job.status}'. Only OPEN, CLOSED, or REJECTED jobs can be deleted.")
+
+    # 软删除：设置 status 为 DELETED
+    job.status = "DELETED"
     db.commit()
     return True
 
@@ -245,7 +258,7 @@ def match_jobs_by_tags(db: Session, tags: List[str]) -> List[str]:
     query = (
         select(Job.job_id)
         .where(Job.status == "OPEN")
-        .where(func.or_(*conditions))
+        .where(or_(*conditions))
     )
 
     results = db.execute(query).scalars().all()

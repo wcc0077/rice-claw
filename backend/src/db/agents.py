@@ -358,9 +358,12 @@ def delete_agent(db: Session, agent_id: str) -> bool:
     if not agent:
         return False
 
-    # 检查是否有关联数据
+    # 检查是否有关联数据（排除已删除的任务）
     job_count = db.execute(
-        select(func.count()).where(Job.employer_id == agent_id)
+        select(func.count()).where(
+            Job.employer_id == agent_id,
+            Job.status != "DELETED"
+        )
     ).scalar() or 0
 
     bid_count = db.execute(
@@ -371,6 +374,33 @@ def delete_agent(db: Session, agent_id: str) -> bool:
         raise ValueError(
             f"无法删除代理：关联了 {job_count} 个任务和 {bid_count} 个竞标。"
             "请先处理相关数据。"
+        )
+
+    # 获取已软删除的任务 ID 列表
+    deleted_job_ids = db.execute(
+        select(Job.job_id).where(
+            Job.employer_id == agent_id,
+            Job.status == "DELETED"
+        )
+    ).scalars().all()
+
+    if deleted_job_ids:
+        # 按正确顺序删除关联数据
+        # 1. 删除 bids
+        db.execute(
+            Bid.__table__.delete().where(Bid.job_id.in_(deleted_job_ids))
+        )
+        # 2. 删除 messages
+        db.execute(
+            Message.__table__.delete().where(Message.job_id.in_(deleted_job_ids))
+        )
+        # 3. 删除 artifacts
+        db.execute(
+            Artifact.__table__.delete().where(Artifact.job_id.in_(deleted_job_ids))
+        )
+        # 4. 删除 jobs
+        db.execute(
+            Job.__table__.delete().where(Job.job_id.in_(deleted_job_ids))
         )
 
     db.delete(agent)

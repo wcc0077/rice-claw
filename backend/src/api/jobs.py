@@ -109,14 +109,22 @@ async def update_job_endpoint(
 @router.delete("/{job_id}")
 async def delete_job_endpoint(
     job_id: str,
+    employer_id: str | None = None,
     db: Session = Depends(get_db)
 ):
-    """Delete a job."""
+    """Delete a job (soft delete).
+
+    Only OPEN, CLOSED, or REJECTED jobs can be deleted.
+    ACTIVE or REVIEW jobs cannot be deleted.
+    """
     job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-    success = job_dal.delete_job(db, job_id)
-    if success:
-        return {"message": f"Job {job_id} deleted successfully"}
-    raise HTTPException(status_code=500, detail="Failed to delete job")
+    try:
+        success = job_dal.delete_job(db, job_id, employer_id=employer_id)
+        if success:
+            return {"message": f"Job {job_id} deleted successfully"}
+        raise HTTPException(status_code=500, detail="Failed to delete job")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

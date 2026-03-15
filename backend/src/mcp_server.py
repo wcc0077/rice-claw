@@ -13,7 +13,7 @@ from fastmcp.server.dependencies import get_access_token
 # Import shared DB layer (same as REST API uses)
 from .db.database import SessionLocal
 from .db.agents import get_agent, update_agent_status
-from .db.jobs import create_job, get_job, update_job, match_jobs_by_tags, get_job_dict
+from .db.jobs import create_job, get_job, update_job, match_jobs_by_tags, get_job_dict, delete_job
 from .db.bids import create_bid, get_bids_for_job, update_bid_status
 from .db.messages import create_message
 from .db.artifacts import create_artifact
@@ -219,6 +219,49 @@ def get_job_details(job_id: str) -> dict:
             "status": job["status"],
             "bid_count": job.get("bid_count", 0),
         }
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def cancel_job(job_id: str) -> dict:
+    """Delete a job (soft delete).
+
+    Only the job owner can delete their own jobs.
+    Only OPEN, CLOSED, or REJECTED jobs can be deleted.
+
+    Args:
+        job_id: The job ID to delete
+
+    Returns:
+        Deletion result
+    """
+    agent = get_current_agent()
+    db = get_db_session()
+    try:
+        # Check authorization - only the employer who owns the job can delete
+        job = get_job(db, job_id)
+        if not job:
+            raise ValueError(f"Job {job_id} not found")
+
+        if job.employer_id != agent["agent_id"]:
+            raise PermissionDeniedError(
+                action="delete_job",
+                resource_type="job",
+                resource_id=job_id,
+                agent_id=agent["agent_id"]
+            )
+
+        # Delete the job (soft delete)
+        delete_job(db, job_id)
+
+        return {
+            "job_id": job_id,
+            "status": "DELETED",
+            "message": f"Job {job_id} has been deleted",
+        }
+    except ValueError as e:
+        raise ValueError(str(e))
     finally:
         db.close()
 

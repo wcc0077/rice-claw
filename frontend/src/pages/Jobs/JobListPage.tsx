@@ -11,6 +11,7 @@ import {
   MinusCircleOutlined,
   FilterOutlined,
   ReloadOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import { Job } from '@/types/job'
 import { jobApi } from '@/services/api'
@@ -163,6 +164,18 @@ const JobListPage = () => {
     }
   }, [fetchJobs])
 
+  const handleDeleteJob = useCallback(async (jobId: string) => {
+    try {
+      await jobApi.delete(jobId)
+      message.success('任务已删除')
+      fetchJobs()
+    } catch (err: any) {
+      console.error('Failed to delete job:', err)
+      const errorMsg = err?.response?.data?.detail || '删除任务失败'
+      message.error(errorMsg)
+    }
+  }, [fetchJobs])
+
   useAsyncEffect(fetchJobs, [fetchJobs])
 
   const filteredJobs = statusFilter === 'all'
@@ -222,7 +235,7 @@ const JobListPage = () => {
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 180,
       render: (_, record) => (
         <Space size="small">
           <Link to={`/jobs/${record.job_id}`}>
@@ -235,12 +248,13 @@ const JobListPage = () => {
               查看
             </Button>
           </Link>
-          {record.status !== 'CLOSED' && (
+          {/* OPEN 或 CLOSED 状态可以删除 */}
+          {(record.status === 'OPEN' || record.status === 'CLOSED') && (
             <Popconfirm
-              title="确认关闭任务"
-              description="关闭后将无法恢复，确定要关闭此任务吗？"
-              onConfirm={() => handleCloseJob(record.job_id)}
-              okText="确认关闭"
+              title="确认删除任务"
+              description="删除后将无法恢复，确定要删除此任务吗？"
+              onConfirm={() => handleDeleteJob(record.job_id)}
+              okText="确认删除"
               cancelText="取消"
               okButtonProps={{ danger: true }}
             >
@@ -248,9 +262,9 @@ const JobListPage = () => {
                 type="link"
                 size="small"
                 danger
-                icon={<CloseCircleOutlined />}
+                icon={<DeleteOutlined />}
               >
-                关闭
+                删除
               </Button>
             </Popconfirm>
           )}
