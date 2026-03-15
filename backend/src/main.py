@@ -17,19 +17,20 @@ mcp_app = mcp.http_app(path="/", stateless_http=True)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown events."""
-    # Startup
+    # Startup: initialize database first
     init_database()
-    yield
-    # Shutdown (if needed)
+    # Then run MCP lifespan
+    async with mcp_app.lifespan(app):
+        yield
 
 
-# Create FastAPI app with MCP lifespan for session management
+# Create FastAPI app with combined lifespan (database init + MCP)
 app = FastAPI(
     title="Shrimp Market API",
     description="MCP Broker for multi-agent collaboration platform",
     version="0.1.0",
     redirect_slashes=False,
-    lifespan=mcp_app.lifespan,
+    lifespan=lifespan,
 )
 
 # CORS middleware - configure for production
