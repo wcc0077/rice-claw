@@ -1,6 +1,6 @@
 import { useState, memo, useCallback } from 'react'
 import { Typography, Form, Input, Button, message, Alert, Spin } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ThunderboltOutlined,
   SafetyCertificateOutlined,
@@ -54,6 +54,7 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [form] = Form.useForm()
 
   const onFinish = useCallback(async (values: { username: string; password: string }) => {
@@ -72,7 +73,9 @@ const LoginPage = () => {
           content: '登录成功',
           icon: <CheckCircleOutlined className="text-emerald-400" />,
         })
-        navigate('/market')
+        // Redirect to dashboard or the requested page
+        const redirectTo = searchParams.get('redirect') || '/dashboard'
+        navigate(redirectTo)
       } else {
         setError('用户名或密码错误')
         message.error('登录失败：用户名或密码错误')
@@ -83,7 +86,7 @@ const LoginPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [navigate])
+  }, [navigate, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">

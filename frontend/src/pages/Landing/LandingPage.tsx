@@ -428,7 +428,7 @@ const LandingPage = () => {
 
           <Button
             type="primary"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/dashboard')}
             className="bg-gradient-to-r from-orange-500 to-red-500 border-0 hover:opacity-90 transition-opacity"
           >
             进入控制台

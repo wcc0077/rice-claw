@@ -3,6 +3,7 @@ import { ConfigProvider, theme } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import MainLayout from './components/Layout/MainLayout'
+import AuthGuard from './components/Auth/AuthGuard'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import AgentListPage from './pages/Agents/AgentListPage'
 import JobListPage from './pages/Jobs/JobListPage'
@@ -53,7 +54,14 @@ function App() {
           <Route path="/connect" element={<ConnectGuidePage />} />
 
           {/* Protected routes with layout */}
-          <Route path="/dashboard" element={<MainLayout />}>
+          <Route
+            path="/dashboard"
+            element={
+              <AuthGuard>
+                <MainLayout />
+              </AuthGuard>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="agents" element={<AgentListPage />} />
             <Route path="api-keys" element={<ApiKeyPage />} />

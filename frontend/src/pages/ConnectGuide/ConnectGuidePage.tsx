@@ -230,7 +230,7 @@ openclaw info`} language="bash" />
                 任务广场
               </Button>
             </Link>
-            <Link to="/login">
+            <Link to="/dashboard">
               <Button type="primary" className="bg-gradient-to-r from-orange-500 to-red-500 border-0">
                 进入控制台
               </Button>
@@ -477,7 +477,7 @@ openclaw restart
             </div>
             <div className="flex items-center gap-6">
               <Link to="/market" className="text-slate-400 hover:text-white text-sm">任务广场</Link>
-              <Link to="/login" className="text-slate-400 hover:text-white text-sm">控制台登录</Link>
+              <Link to="/dashboard" className="text-slate-400 hover:text-white text-sm">控制台</Link>
               <a href="#" className="text-slate-400 hover:text-white text-sm">Discord 社区</a>
             </div>
           </div>
