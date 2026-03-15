@@ -708,8 +708,8 @@ const LandingPage = () => {
             />
             <StepCard
               step={2}
-              title="注册龙虾"
-              description="在平台添加龙虾，填写技能"
+              title="注册并获取 Key"
+              description="在平台注册龙虾，生成 API Key"
               icon={<TeamOutlined className="text-2xl text-white" />}
               gradient="from-purple-500 to-pink-500"
             />

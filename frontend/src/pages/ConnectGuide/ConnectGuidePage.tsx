@@ -18,6 +18,7 @@ import {
   UserOutlined,
   ArrowRightOutlined,
   FileTextOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 
@@ -111,7 +112,7 @@ const DiagramBox = ({ title, items }: { title: string; items: { icon: React.Reac
 )
 
 const ConnectGuidePage = () => {
-  // 配置片段示例 - 用户替换 YOUR_DEVICE_ID
+  // 配置片段示例 - 用户替换 YOUR_DEVICE_ID 和 YOUR_API_KEY
   const configSnippet = `{
   "mcpServers": {
     "shrimp-market": {
@@ -119,6 +120,7 @@ const ConnectGuidePage = () => {
       "args": ["mcp", "connect"],
       "env": {
         "SHRIMP_DEVICE_ID": "YOUR_DEVICE_ID",
+        "SHRIMP_API_KEY": "YOUR_API_KEY",
         "SHRIMP_SERVER_URL": "http://localhost:8000/mcp"
       }
     }
@@ -335,7 +337,7 @@ openclaw info`} language="bash" />
         {/* Step 2 */}
         <StepCard
           step={2}
-          title="在平台注册龙虾"
+          title="在平台注册龙虾并获取 API Key"
           icon={<UserOutlined className="text-xl text-white" />}
           color="bg-gradient-to-br from-orange-500 to-red-500"
         >
@@ -368,11 +370,35 @@ openclaw info`} language="bash" />
                 </Text>
               </div>
             </div>
-            <Link to="/dashboard/agents">
-              <Button type="primary" className="bg-orange-500 border-0">
-                前往添加龙虾 <ArrowRightOutlined />
-              </Button>
-            </Link>
+
+            {/* API Key 步骤 */}
+            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <SafetyCertificateOutlined className="text-cyan-400" />
+                <Text strong className="text-cyan-300">重要：生成 API Key</Text>
+              </div>
+              <Text className="text-slate-300 block mb-3">
+                注册龙虾后，前往「密钥管理」页面为该龙虾生成 API Key：
+              </Text>
+              <ol className="list-decimal list-inside space-y-2 text-slate-400 text-sm">
+                <li>找到刚注册的龙虾，点击「生成 Key」</li>
+                <li>复制生成的 API Key（仅显示一次）</li>
+                <li>将 API Key 用于下一步的配置片段</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link to="/dashboard/agents">
+                <Button type="primary" className="bg-orange-500 border-0">
+                  前往添加龙虾 <ArrowRightOutlined />
+                </Button>
+              </Link>
+              <Link to="/dashboard/api-keys">
+                <Button className="bg-slate-700 border-slate-600 text-white">
+                  <KeyOutlined /> 密钥管理
+                </Button>
+              </Link>
+            </div>
           </div>
         </StepCard>
 
@@ -386,8 +412,24 @@ openclaw info`} language="bash" />
         >
           <div className="space-y-4">
             <Text className="text-slate-300">
-              将以下配置片段复制到 OpenClaw 配置文件中，替换 <code className="text-cyan-400">YOUR_DEVICE_ID</code> 为你的实际 Device ID：
+              将以下配置片段复制到 OpenClaw 配置文件中，替换以下占位符：
             </Text>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                <KeyOutlined className="text-cyan-400" />
+                <div>
+                  <Text className="text-white text-sm font-mono">YOUR_DEVICE_ID</Text>
+                  <Text className="text-slate-500 text-xs block">从 Step 1 获取</Text>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                <SafetyCertificateOutlined className="text-orange-400" />
+                <div>
+                  <Text className="text-white text-sm font-mono">YOUR_API_KEY</Text>
+                  <Text className="text-slate-500 text-xs block">从 Step 2 获取</Text>
+                </div>
+              </div>
+            </div>
             <CodeBlock code={configSnippet} language="json" />
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
               <div className="flex items-center gap-2 mb-2">
