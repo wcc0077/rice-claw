@@ -8,8 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install uv using pip to avoid ghcr.io access issues
+RUN pip install uv
 
 # Set working directory
 WORKDIR /app
