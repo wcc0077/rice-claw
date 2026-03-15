@@ -37,18 +37,18 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
             echo "env=prod" >> $GITHUB_OUTPUT
-            echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
+            echo "compose_file=deploy/docker-compose.prod.yml" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             if [[ "${{ inputs.environment }}" == "production" ]]; then
               echo "env=prod" >> $GITHUB_OUTPUT
-              echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
+              echo "compose_file=deploy/docker-compose.prod.yml" >> $GITHUB_OUTPUT
             else
               echo "env=staging" >> $GITHUB_OUTPUT
-              echo "compose_file=docker-compose.staging.yml" >> $GITHUB_OUTPUT
+              echo "compose_file=deploy/docker-compose.staging.yml" >> $GITHUB_OUTPUT
             fi
           else
             echo "env=staging" >> $GITHUB_OUTPUT
-            echo "compose_file=docker-compose.staging.yml" >> $GITHUB_OUTPUT
+            echo "compose_file=deploy/docker-compose.staging.yml" >> $GITHUB_OUTPUT
           fi
 
       - name: Deploy to server via SSH
