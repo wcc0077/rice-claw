@@ -1,9 +1,11 @@
 # Docker Compose for Staging Environment
-# Triggered by: push to main branch
+# Builds images locally instead of pulling from registry
 
 services:
   backend:
-    image: ghcr.io/wcc0077/rice-claw-backend:staging
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: shrimp-backend-staging
     restart: unless-stopped
     ports:
@@ -22,7 +24,9 @@ services:
       - shrimp-staging-network
 
   frontend:
-    image: ghcr.io/wcc0077/rice-claw-frontend:staging
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: shrimp-frontend-staging
     restart: unless-stopped
     ports:

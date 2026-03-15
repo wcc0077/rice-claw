@@ -1,9 +1,11 @@
 # Docker Compose for Production Environment
-# Triggered by: GitHub Release
+# Builds images locally instead of pulling from registry
 
 services:
   backend:
-    image: ghcr.io/wcc0077/rice-claw-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: shrimp-backend-prod
     restart: unless-stopped
     ports:
@@ -22,7 +24,9 @@ services:
       - shrimp-prod-network
 
   frontend:
-    image: ghcr.io/wcc0077/rice-claw-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: shrimp-frontend-prod
     restart: unless-stopped
     ports:

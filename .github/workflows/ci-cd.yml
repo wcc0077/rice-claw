@@ -1,14 +1,13 @@
-# CI/CD Pipeline for Shrimp Market
+# CI/CD Pipeline for Shrimp Market (Local Build)
 #
-# Triggers:
+# Triggered by:
 #   - Push to main: Deploy to staging environment
 #   - Release: Deploy to production environment
 #   - Manual: workflow_dispatch
 #
 # Requirements:
 #   - GitHub Secrets: SERVER_HOST, SERVER_USER, SERVER_SSH_KEY, SERVER_SSH_PORT
-#   - Server directory: /opt/shrimp-market/
-#   - Docker and Docker Compose installed on server
+#   - Server: Docker, Docker Compose, Git installed
 
 name: CI/CD Pipeline
 
@@ -28,102 +27,30 @@ on:
           - staging
           - production
 
-env:
-  REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/rice-claw-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/rice-claw-frontend
-
 jobs:
-  # ===========================================
-  # Build and Push Docker Images
-  # ===========================================
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      env: ${{ steps.tag.outputs.env }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Determine image tag
-        id: tag
+      - name: Determine environment
+        id: env
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
-            # Release: use version tag (e.g., v1.0.0)
-            TAG="${{ github.event.release.tag_name }}"
-            ENV="prod"
-            # Also tag as latest for production
-            echo "additional_tags=latest" >> $GITHUB_OUTPUT
+            echo "env=prod" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Manual dispatch: use selected environment
             if [[ "${{ inputs.environment }}" == "production" ]]; then
-              TAG="latest"
-              ENV="prod"
+              echo "env=prod" >> $GITHUB_OUTPUT
+              echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
             else
-              TAG="staging"
-              ENV="staging"
+              echo "env=staging" >> $GITHUB_OUTPUT
+              echo "compose_file=docker-compose.staging.yml" >> $GITHUB_OUTPUT
             fi
           else
-            # Push to main: staging
-            TAG="staging"
-            ENV="staging"
+            echo "env=staging" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.staging.yml" >> $GITHUB_OUTPUT
           fi
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "env=${ENV}" >> $GITHUB_OUTPUT
-          echo "Building with tag: ${TAG}, environment: ${ENV}"
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.additional_tags != '' && format('{0}:{1}', env.BACKEND_IMAGE, steps.tag.outputs.additional_tags) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.additional_tags != '' && format('{0}:{1}', env.FRONTEND_IMAGE, steps.tag.outputs.additional_tags) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Image digest
-        run: |
-          echo "Backend image: ${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.tag }}"
-          echo "Frontend image: ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}"
-
-  # ===========================================
-  # Deploy to Server
-  # ===========================================
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: success()
-
-    steps:
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -135,30 +62,32 @@ jobs:
             set -e
 
             echo "=========================================="
-            echo "Deploying ${{ needs.build.outputs.env }} environment"
-            echo "Image tag: ${{ needs.build.outputs.tag }}"
+            echo "Deploying ${{ steps.env.outputs.env }} environment"
+            echo "Trigger: ${{ github.event_name }}"
             echo "=========================================="
 
             # Navigate to project directory
             cd /opt/shrimp-market
 
-            # Login to GitHub Container Registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            # Pull latest code
+            echo "Pulling latest code..."
+            git pull origin main
 
-            # Pull latest images
-            echo "Pulling latest images..."
-            docker compose -f docker-compose.${{ needs.build.outputs.env }}.yml pull
+            # Build images locally
+            echo "Building Docker images..."
+            docker compose -f ${{ steps.env.outputs.compose_file }} build --no-cache
 
-            # Restart services with zero downtime
+            # Stop old containers and start new ones
             echo "Restarting services..."
-            docker compose -f docker-compose.${{ needs.build.outputs.env }}.yml up -d
+            docker compose -f ${{ steps.env.outputs.compose_file }} down
+            docker compose -f ${{ steps.env.outputs.compose_file }} up -d
 
             # Wait for health check
             echo "Waiting for services to be healthy..."
             sleep 10
 
             # Check service status
-            docker compose -f docker-compose.${{ needs.build.outputs.env }}.yml ps
+            docker compose -f ${{ steps.env.outputs.compose_file }} ps
 
             # Clean up old images
             echo "Cleaning up old images..."
@@ -166,15 +95,11 @@ jobs:
 
             echo "=========================================="
             echo "Deployment completed successfully!"
-            echo "Environment: ${{ needs.build.outputs.env }}"
-            echo "Tag: ${{ needs.build.outputs.tag }}"
+            echo "Environment: ${{ steps.env.outputs.env }}"
             echo "=========================================="
 
-  # ===========================================
-  # Notify on Failure (Optional)
-  # ===========================================
   notify-failure:
-    needs: [build, deploy]
+    needs: deploy
     runs-on: ubuntu-latest
     if: failure()
 
@@ -193,7 +118,6 @@ jobs:
                 - **Run ID**: ${{ github.run_id }}
                 - **Branch**: ${{ github.ref_name }}
                 - **Trigger**: ${{ github.event_name }}
-                - **Environment**: ${{ needs.build.outputs.env }}
                 - **Actor**: @${{ github.actor }}
 
                 [View Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})

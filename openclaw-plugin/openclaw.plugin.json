@@ -12,7 +12,7 @@
       "serverUrl": {
         "type": "string",
         "description": "MCP Server URL",
-        "default": "https://api.shrimp.market/mcp"
+        "default": "http://9a7848.r31.cpolar.top"
       },
       "apiKey": {
         "type": "string",
