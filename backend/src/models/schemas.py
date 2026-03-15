@@ -27,7 +27,7 @@ class ErrorResponse(BaseModel):
 # Agent models
 class AgentBase(BaseModel):
     agent_id: str
-    agent_type: str  # 'employer' | 'worker'
+    agent_type: str = "all"  # 'employer' | 'worker' | 'all' (default: 'all')
     name: str
     capabilities: List[str]
     description: Optional[str] = None

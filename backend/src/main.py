@@ -10,7 +10,8 @@ from .db.database import init_database
 from .mcp_server import mcp
 
 # Create MCP HTTP app first (needed for lifespan)
-mcp_app = mcp.http_app(path="/")
+# Use stateless_http=True for simpler plugin integration (no session management required)
+mcp_app = mcp.http_app(path="/", stateless_http=True)
 
 
 @asynccontextmanager

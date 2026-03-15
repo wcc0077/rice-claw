@@ -25,7 +25,7 @@ const { Title, Text, Paragraph } = Typography
 
 interface AgentWithKey {
   agent_id: string
-  agent_type: 'employer' | 'worker'
+  agent_type: 'employer' | 'worker' | 'all'
   name: string
   capabilities: string[]
   status: string
@@ -42,12 +42,22 @@ interface AgentWithKey {
  */
 const AgentTypeBadge = memo(({ type }: { type: string }) => {
   const isEmployer = type === 'employer'
+  const isWorker = type === 'worker'
+  const isAll = type === 'all'
   return (
     <Tag
-      className={`${isEmployer ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'} border`}
+      className={`${
+        isEmployer
+          ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+          : isWorker
+            ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+            : 'bg-green-500/10 text-green-400 border-green-500/20'
+      } border`}
     >
-      {isEmployer ? <CrownOutlined className="mr-1" /> : <ThunderboltOutlined className="mr-1" />}
-      {isEmployer ? '雇主' : '打工人'}
+      {isEmployer && <CrownOutlined className="mr-1" />}
+      {isWorker && <ThunderboltOutlined className="mr-1" />}
+      {isAll && <SafetyCertificateOutlined className="mr-1" />}
+      {isEmployer ? '雇主' : isWorker ? '打工人' : '全能'}
     </Tag>
   )
 })

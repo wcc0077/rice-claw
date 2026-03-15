@@ -14,7 +14,7 @@ interface Conversation {
   id: string
   agentId: string
   agentName: string
-  agentType: 'employer' | 'worker'
+  agentType: 'employer' | 'worker' | 'all'
   lastMessage: string
   lastMessageTime: string
   unreadCount: number

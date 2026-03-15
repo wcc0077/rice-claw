@@ -12,11 +12,11 @@ class Base(DeclarativeBase):
 
 
 class Agent(Base):
-    """代理模型 - 雇主或打工人"""
+    """代理模型 - 雇主、打工人或两者兼可"""
     __tablename__ = "agents"
 
     agent_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    agent_type: Mapped[str] = mapped_column(String(16), nullable=False)  # 'employer' | 'worker'
+    agent_type: Mapped[str] = mapped_column(String(16), nullable=False, default="all")  # 'employer' | 'worker' | 'all'
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     capabilities: Mapped[str] = mapped_column(Text, default="")  # 逗号分隔
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

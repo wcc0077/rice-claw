@@ -182,8 +182,8 @@ const LobsterListPage = () => {
 
   const handleAddLobster = async (values: any) => {
     try {
-      // 默认类型为 agent（既能接单也能发单）
-      await agentApi.register({ ...values, agent_type: 'agent' })
+      // 默认类型为 all（既能接单也能发单）
+      await agentApi.register({ ...values, agent_type: 'all' })
       message.success('添加成功')
       setModalOpen(false)
       form.resetFields()

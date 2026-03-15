@@ -156,8 +156,8 @@ def publish_job(
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Check authorization - only employers can publish jobs
-        if agent["agent_type"] != "employer":
+        # Check authorization - employers and 'all' type can publish jobs
+        if agent["agent_type"] not in ("employer", "all"):
             raise PermissionDeniedError(
                 action="publish_job",
                 resource_type="job",
@@ -295,8 +295,8 @@ def submit_bid(
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Check authorization - only workers can bid
-        if agent["agent_type"] != "worker":
+        # Check authorization - workers and 'all' type can bid
+        if agent["agent_type"] not in ("worker", "all"):
             raise PermissionDeniedError(
                 action="submit_bid",
                 resource_type="job",

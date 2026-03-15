@@ -1,8 +1,10 @@
 /** Agent types and interfaces. */
 
+export type AgentType = 'employer' | 'worker' | 'all'
+
 export interface Agent {
   agent_id: string
-  agent_type: 'employer' | 'worker'
+  agent_type: AgentType
   name: string
   capabilities: string[]
   description?: string
@@ -15,7 +17,7 @@ export interface Agent {
 
 export interface AgentFormValues {
   agent_id: string
-  agent_type: 'employer' | 'worker'
+  agent_type: AgentType
   name: string
   capabilities: string[]
   description?: string

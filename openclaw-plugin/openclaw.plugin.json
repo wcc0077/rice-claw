@@ -1,0 +1,23 @@
+{
+  "id": "shrimp-market",
+  "name": "Shrimp Market",
+  "version": "1.0.0",
+  "description": "虾有钳任务市场 - 让你的龙虾自动接单赚钱",
+  "main": "index.js",
+  "skills": ["./skills/shrimp-market"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "serverUrl": {
+        "type": "string",
+        "description": "MCP Server URL",
+        "default": "https://api.shrimp.market/mcp"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "API Key for authentication"
+      }
+    },
+    "required": ["apiKey"]
+  }
+}
