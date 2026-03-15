@@ -3,67 +3,55 @@
 This module provides MCP tools that share the same business logic as REST API.
 Both MCP and HTTP interfaces use the same DB layer functions.
 
-Security: All tools require API key authentication. Agents are authenticated
-by their API key, and authorization is enforced per-operation.
+Security: All tools require Bearer token authentication via Authorization header.
+Agents are authenticated by their API key, and authorization is enforced per-operation.
 """
 
 from fastmcp import FastMCP
-from sqlalchemy.orm import Session
+from fastmcp.server.dependencies import get_access_token
 
 # Import shared DB layer (same as REST API uses)
 from .db.database import SessionLocal
-from .db.agents import get_agent, update_agent_status, update_last_seen, get_agent_by_api_key
+from .db.agents import get_agent, update_agent_status
 from .db.jobs import create_job, get_job, update_job, match_jobs_by_tags, get_job_dict
-from .db.bids import create_bid, get_bids_for_job, update_bid_status, get_bid
+from .db.bids import create_bid, get_bids_for_job, update_bid_status
 from .db.messages import create_message
 from .db.artifacts import create_artifact
 
-# Import authentication and authorization
-from .auth import (
-    AgentAuthContext,
-    validate_api_key_format,
-    PermissionDeniedError,
-)
+# Import authentication
+from .auth import PermissionDeniedError
+from .auth.mcp_auth import ShrimpMarketAuthProvider
 
-# Initialize MCP server
-mcp = FastMCP(name="shrimp_market")
+# Initialize MCP server with auth provider
+mcp = FastMCP(
+    name="shrimp_market",
+    auth=ShrimpMarketAuthProvider(),
+)
 
 
 # ============================================================
 # Authentication Helper
 # ============================================================
 
-def authenticate_agent(api_key: str, db: Session) -> AgentAuthContext:
-    """Authenticate an agent by API key.
-
-    Args:
-        api_key: The agent's API key
-        db: Database session
+def get_current_agent() -> dict:
+    """Get the current authenticated agent from the access token.
 
     Returns:
-        AgentAuthContext for the authenticated agent
+        Dict with agent_id, agent_type, is_verified
 
     Raises:
-        ValueError: If API key is invalid or agent not found
+        ValueError: If not authenticated
     """
-    # Validate format
-    is_valid, error_msg = validate_api_key_format(api_key)
-    if not is_valid:
-        raise ValueError(f"Authentication failed: {error_msg}")
+    token = get_access_token()
+    if not token:
+        raise ValueError("Authentication required. Please provide a valid API key in the Authorization header.")
 
-    # Look up agent by API key (O(1) via key_id index)
-    agent = get_agent_by_api_key(db, api_key)
-    if not agent:
-        raise ValueError("Authentication failed: Invalid API key")
-
-    # Update last seen (pass agent object to avoid redundant query)
-    update_last_seen(db, agent)
-
-    return AgentAuthContext(
-        agent_id=agent.agent_id,
-        agent_type=agent.agent_type,
-        is_verified=agent.is_verified
-    )
+    claims = token.claims
+    return {
+        "agent_id": claims.get("agent_id"),
+        "agent_type": claims.get("agent_type"),
+        "is_verified": claims.get("is_verified", False),
+    }
 
 
 def get_db_session():
@@ -76,24 +64,22 @@ def get_db_session():
 # ============================================================
 
 @mcp.tool()
-def register_capability(api_key: str, capabilities: list[str]) -> dict:
+def register_capability(capabilities: list[str]) -> dict:
     """Register or update agent capabilities.
 
     Args:
-        api_key: The agent's API key for authentication
         capabilities: List of skill tags to register
 
     Returns:
         Updated agent information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Update status to indicate active capability registration
-        updated = update_agent_status(db, ctx.agent_id, "idle")
+        updated = update_agent_status(db, agent["agent_id"], "idle")
         return {
-            "agent_id": ctx.agent_id,
+            "agent_id": agent["agent_id"],
             "capabilities_registered": capabilities,
             "status": updated.status if updated else "unknown",
         }
@@ -102,25 +88,22 @@ def register_capability(api_key: str, capabilities: list[str]) -> dict:
 
 
 @mcp.tool()
-def list_my_tasks(api_key: str) -> list[dict]:
+def list_my_tasks() -> list[dict]:
     """List tasks available to this agent based on capabilities.
-
-    Args:
-        api_key: The agent's API key for authentication
 
     Returns:
         List of matching jobs
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-        agent = get_agent(db, ctx.agent_id)
+        agent_record = get_agent(db, agent["agent_id"])
 
-        if not agent:
-            raise ValueError(f"Agent {ctx.agent_id} not found")
+        if not agent_record:
+            raise ValueError(f"Agent {agent['agent_id']} not found")
 
         # Find jobs matching agent's capabilities (shared DB function)
-        capabilities = agent.capabilities.split(",") if agent.capabilities else []
+        capabilities = agent_record.capabilities.split(",") if agent_record.capabilities else []
         job_ids = match_jobs_by_tags(db, capabilities)
 
         jobs = []
@@ -148,7 +131,6 @@ def list_my_tasks(api_key: str) -> list[dict]:
 
 @mcp.tool()
 def publish_job(
-    api_key: str,
     title: str,
     description: str,
     required_tags: list[str],
@@ -161,7 +143,6 @@ def publish_job(
     Uses the same create_job() as REST API endpoint.
 
     Args:
-        api_key: The employer's API key for authentication
         title: Job title
         description: Job description
         required_tags: Required skill tags
@@ -172,22 +153,21 @@ def publish_job(
     Returns:
         Created job information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Check authorization - only employers can publish jobs
-        if not ctx.is_employer():
+        if agent["agent_type"] != "employer":
             raise PermissionDeniedError(
                 action="publish_job",
                 resource_type="job",
                 resource_id="new",
-                agent_id=ctx.agent_id
+                agent_id=agent["agent_id"]
             )
 
         # Call shared DB function (same as REST API)
         job_data = {
-            "employer_id": ctx.agent_id,
+            "employer_id": agent["agent_id"],
             "title": title,
             "description": description,
             "required_tags": required_tags,
@@ -212,20 +192,19 @@ def publish_job(
 
 
 @mcp.tool()
-def get_job_details(api_key: str, job_id: str) -> dict:
+def get_job_details(job_id: str) -> dict:
     """Get detailed job information.
 
     Args:
-        api_key: The agent's API key for authentication
         job_id: The job ID
 
     Returns:
         Job details
     """
+    # Require authentication (any authenticated user can view job details)
+    get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         job = get_job_dict(db, job_id)
         if not job:
             raise ValueError(f"Job {job_id} not found")
@@ -250,7 +229,6 @@ def get_job_details(api_key: str, job_id: str) -> dict:
 
 @mcp.tool()
 def submit_bid(
-    api_key: str,
     job_id: str,
     proposal: str,
     quote_amount: int,
@@ -262,7 +240,6 @@ def submit_bid(
     Uses the same create_bid() as REST API endpoint.
 
     Args:
-        api_key: The worker's API key for authentication
         job_id: The job ID
         proposal: Proposal text
         quote_amount: Quote amount
@@ -272,23 +249,22 @@ def submit_bid(
     Returns:
         Created bid information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Check authorization - only workers can bid
-        if not ctx.is_worker():
+        if agent["agent_type"] != "worker":
             raise PermissionDeniedError(
                 action="submit_bid",
                 resource_type="job",
                 resource_id=job_id,
-                agent_id=ctx.agent_id
+                agent_id=agent["agent_id"]
             )
 
         # Call shared DB function
         bid_data = {
             "job_id": job_id,
-            "worker_id": ctx.agent_id,
+            "worker_id": agent["agent_id"],
             "proposal": proposal,
             "quote": {
                 "amount": quote_amount,
@@ -314,34 +290,32 @@ def submit_bid(
 
 
 @mcp.tool()
-def get_all_bids(api_key: str, job_id: str) -> list[dict]:
+def get_all_bids(job_id: str) -> list[dict]:
     """Get all bids for a job.
 
     Uses the same get_bids_for_job() as REST API.
 
     Args:
-        api_key: The agent's API key for authentication
         job_id: The job ID
 
     Returns:
         List of bids with worker details
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists
         job = get_job(db, job_id)
         if not job:
             raise ValueError(f"Job {job_id} not found")
 
         # Only job owner can see all bids
-        if job.employer_id != ctx.agent_id:
+        if job.employer_id != agent["agent_id"]:
             raise PermissionDeniedError(
                 action="view_bids",
                 resource_type="job",
                 resource_id=job_id,
-                agent_id=ctx.agent_id
+                agent_id=agent["agent_id"]
             )
 
         bids = get_bids_for_job(db, job_id)
@@ -367,7 +341,6 @@ def get_all_bids(api_key: str, job_id: str) -> list[dict]:
 
 @mcp.tool()
 def send_private_msg(
-    api_key: str,
     to_agent_id: str,
     job_id: str,
     content: str,
@@ -378,7 +351,6 @@ def send_private_msg(
     Uses the same create_message() as REST API.
 
     Args:
-        api_key: The sender's API key for authentication
         to_agent_id: Receiver's agent ID
         job_id: Related job ID
         content: Message content
@@ -387,10 +359,9 @@ def send_private_msg(
     Returns:
         Created message information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists
         job = get_job(db, job_id)
         if not job:
@@ -404,7 +375,7 @@ def send_private_msg(
         # Call shared DB function
         message_data = {
             "job_id": job_id,
-            "from_agent_id": ctx.agent_id,
+            "from_agent_id": agent["agent_id"],
             "to_agent_id": to_agent_id,
             "content": content,
             "message_type": message_type,
@@ -417,7 +388,7 @@ def send_private_msg(
         return {
             "message_id": message.message_id,
             "job_id": message.job_id,
-            "from": ctx.agent_id,
+            "from": agent["agent_id"],
             "to": to_agent_id,
             "created_at": message.created_at.isoformat() if message.created_at else None,
         }
@@ -430,11 +401,10 @@ def send_private_msg(
 # ============================================================
 
 @mcp.tool()
-def post_demo(api_key: str, job_id: str, title: str, content: str) -> dict:
+def post_demo(job_id: str, title: str, content: str) -> dict:
     """Post a demo artifact for a job.
 
     Args:
-        api_key: The worker's API key for authentication
         job_id: The job ID
         title: Demo title
         content: Demo content
@@ -442,10 +412,9 @@ def post_demo(api_key: str, job_id: str, title: str, content: str) -> dict:
     Returns:
         Created artifact information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists
         job = get_job(db, job_id)
         if not job:
@@ -453,7 +422,7 @@ def post_demo(api_key: str, job_id: str, title: str, content: str) -> dict:
 
         artifact_data = {
             "job_id": job_id,
-            "worker_id": ctx.agent_id,
+            "worker_id": agent["agent_id"],
             "artifact_type": "demo",
             "title": title,
             "content": content,
@@ -474,11 +443,10 @@ def post_demo(api_key: str, job_id: str, title: str, content: str) -> dict:
 
 
 @mcp.tool()
-def submit_final_work(api_key: str, job_id: str, title: str, content: str) -> dict:
+def submit_final_work(job_id: str, title: str, content: str) -> dict:
     """Submit final work for a job.
 
     Args:
-        api_key: The worker's API key for authentication
         job_id: The job ID
         title: Work title
         content: Work content
@@ -486,10 +454,9 @@ def submit_final_work(api_key: str, job_id: str, title: str, content: str) -> di
     Returns:
         Created artifact information
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists
         job = get_job(db, job_id)
         if not job:
@@ -497,7 +464,7 @@ def submit_final_work(api_key: str, job_id: str, title: str, content: str) -> di
 
         artifact_data = {
             "job_id": job_id,
-            "worker_id": ctx.agent_id,
+            "worker_id": agent["agent_id"],
             "artifact_type": "final",
             "title": title,
             "content": content,
@@ -523,7 +490,6 @@ def submit_final_work(api_key: str, job_id: str, title: str, content: str) -> di
 
 @mcp.tool()
 def finalize_hiring(
-    api_key: str,
     job_id: str,
     bid_ids: list[str],
 ) -> dict:
@@ -532,27 +498,25 @@ def finalize_hiring(
     Uses the same update_bid_status() and update_job() as REST API.
 
     Args:
-        api_key: The employer's API key for authentication
         job_id: The job ID
         bid_ids: List of bid IDs to accept
 
     Returns:
         Hiring result
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists and ownership
         job = get_job(db, job_id)
         if not job:
             raise ValueError(f"Job {job_id} not found")
-        if job.employer_id != ctx.agent_id:
+        if job.employer_id != agent["agent_id"]:
             raise PermissionDeniedError(
                 action="finalize_hiring",
                 resource_type="job",
                 resource_id=job_id,
-                agent_id=ctx.agent_id
+                agent_id=agent["agent_id"]
             )
 
         hired_workers = []
@@ -574,33 +538,31 @@ def finalize_hiring(
 
 
 @mcp.tool()
-def verify_and_close(api_key: str, job_id: str, approved: bool = True) -> dict:
+def verify_and_close(job_id: str, approved: bool = True) -> dict:
     """Verify and close a job after work completion.
 
     Uses the same update_job() as REST API.
 
     Args:
-        api_key: The employer's API key for authentication
         job_id: The job ID
         approved: Whether the work is approved
 
     Returns:
         Closure result
     """
+    agent = get_current_agent()
     db = get_db_session()
     try:
-        ctx = authenticate_agent(api_key, db)
-
         # Validate job exists and ownership
         job = get_job(db, job_id)
         if not job:
             raise ValueError(f"Job {job_id} not found")
-        if job.employer_id != ctx.agent_id:
+        if job.employer_id != agent["agent_id"]:
             raise PermissionDeniedError(
                 action="verify_and_close",
                 resource_type="job",
                 resource_id=job_id,
-                agent_id=ctx.agent_id
+                agent_id=agent["agent_id"]
             )
 
         new_status = "CLOSED" if approved else "REVIEW"

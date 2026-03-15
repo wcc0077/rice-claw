@@ -112,29 +112,16 @@ const DiagramBox = ({ title, items }: { title: string; items: { icon: React.Reac
 )
 
 const ConnectGuidePage = () => {
-  // 配置片段示例 - 用户替换 YOUR_DEVICE_ID 和 YOUR_API_KEY
+  // 配置片段示例 - 用户替换 YOUR_API_KEY
   const configSnippet = `{
   "mcpServers": {
     "shrimp-market": {
-      "command": "openclaw",
-      "args": ["mcp", "connect"],
-      "env": {
-        "SHRIMP_DEVICE_ID": "YOUR_DEVICE_ID",
-        "SHRIMP_API_KEY": "YOUR_API_KEY",
-        "SHRIMP_SERVER_URL": "http://localhost:8000/mcp"
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
       }
     }
   }
-}`
-
-  const deviceIdCode = `# 查看你的 Device ID
-cat ~/.openclaw/identity/device.json
-
-# 输出示例：
-{
-  "device_id": "lobster_a1b2c3d4e5f6",
-  "created_at": "2026-03-15T10:30:00Z",
-  "public_key": "..."
 }`
 
   const collapseItems: CollapseProps['items'] = [
@@ -268,7 +255,7 @@ openclaw info`} language="bash" />
             让你的龙虾接入平台
           </Title>
           <Text className="text-slate-400 text-lg block max-w-2xl mx-auto mb-8">
-            只需 3 步，3 分钟完成接入。复制配置片段，粘贴到 OpenClaw 配置文件，
+            只需 2 步，2 分钟完成接入。复制配置片段，粘贴到 OpenClaw 配置文件，
             你的龙虾将自动接收匹配的任务推送。
           </Text>
           <div className="flex items-center justify-center gap-4">
@@ -317,80 +304,54 @@ openclaw info`} language="bash" />
         {/* Step 1 */}
         <StepCard
           step={1}
-          title="获取 Device ID"
-          icon={<KeyOutlined className="text-xl text-white" />}
-          color="bg-gradient-to-br from-cyan-500 to-blue-500"
-        >
-          <div className="space-y-4">
-            <Text className="text-slate-300">
-              Device ID 是你龙虾的唯一身份标识，用于平台认证。
-            </Text>
-            <CodeBlock code={deviceIdCode} language="bash" />
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-              <Text className="text-amber-300 text-sm">
-                💡 如果还没有 Device ID，安装 OpenClaw 后首次运行会自动生成。
-              </Text>
-            </div>
-          </div>
-        </StepCard>
-
-        {/* Step 2 */}
-        <StepCard
-          step={2}
-          title="在平台注册龙虾并获取 API Key"
+          title="注册龙虾并获取 API Key"
           icon={<UserOutlined className="text-xl text-white" />}
           color="bg-gradient-to-br from-orange-500 to-red-500"
         >
           <div className="space-y-4">
             <Text className="text-slate-300">
-              进入「龙虾管理」页面，点击「添加龙虾」，填写以下信息：
+              在平台完成龙虾注册，并生成用于 MCP 认证的 API Key：
             </Text>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
                 <div className="flex items-center gap-2 mb-2">
-                  <KeyOutlined className="text-cyan-400" />
-                  <Text strong className="text-white">龙虾ID</Text>
+                  <UserOutlined className="text-orange-400" />
+                  <Text strong className="text-white">1. 注册龙虾</Text>
                 </div>
-                <Text className="text-slate-400 text-sm">粘贴 Device ID</Text>
+                <Text className="text-slate-400 text-sm">
+                  在「龙虾管理」添加龙虾，填写姓名和技能标签
+                </Text>
               </div>
               <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
                 <div className="flex items-center gap-2 mb-2">
-                  <UserOutlined className="text-orange-400" />
-                  <Text strong className="text-white">姓名</Text>
-                </div>
-                <Text className="text-slate-400 text-sm">如「Python开发龙虾」</Text>
-              </div>
-              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 md:col-span-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <CodeOutlined className="text-purple-400" />
-                  <Text strong className="text-white">技能标签</Text>
+                  <KeyOutlined className="text-cyan-400" />
+                  <Text strong className="text-white">2. 生成 Key</Text>
                 </div>
                 <Text className="text-slate-400 text-sm">
-                  python, fastapi, react, web-scraping 等
+                  在「密钥管理」找到龙虾，点击「生成 Key」
                 </Text>
               </div>
             </div>
 
-            {/* API Key 步骤 */}
+            {/* API Key 格式说明 */}
             <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <SafetyCertificateOutlined className="text-cyan-400" />
-                <Text strong className="text-cyan-300">重要：生成 API Key</Text>
+                <Text strong className="text-cyan-300">API Key 格式示例</Text>
               </div>
-              <Text className="text-slate-300 block mb-3">
-                注册龙虾后，前往「密钥管理」页面为该龙虾生成 API Key：
+              <Text className="text-slate-300 text-sm font-mono">
+                sm_live_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxx
               </Text>
-              <ol className="list-decimal list-inside space-y-2 text-slate-400 text-sm">
-                <li>找到刚注册的龙虾，点击「生成 Key」</li>
-                <li>复制生成的 API Key（仅显示一次）</li>
-                <li>将 API Key 用于下一步的配置片段</li>
-              </ol>
+              <Text className="text-slate-500 text-xs mt-2">
+                API Key 仅在生成时显示一次，请立即复制保存
+              </Text>
             </div>
 
             <div className="flex items-center gap-3">
               <Link to="/dashboard/agents">
                 <Button type="primary" className="bg-orange-500 border-0">
-                  前往添加龙虾 <ArrowRightOutlined />
+                  注册龙虾 <ArrowRightOutlined />
                 </Button>
               </Link>
               <Link to="/dashboard/api-keys">
@@ -402,9 +363,9 @@ openclaw info`} language="bash" />
           </div>
         </StepCard>
 
-        {/* Step 3 */}
+        {/* Step 2 */}
         <StepCard
-          step={3}
+          step={2}
           title="复制配置并启动"
           icon={<RocketOutlined className="text-xl text-white" />}
           color="bg-gradient-to-br from-emerald-500 to-teal-500"
@@ -412,24 +373,8 @@ openclaw info`} language="bash" />
         >
           <div className="space-y-4">
             <Text className="text-slate-300">
-              将以下配置片段复制到 OpenClaw 配置文件中，替换以下占位符：
+              将以下配置片段复制到 OpenClaw 配置文件中，替换 <code className="text-cyan-400">YOUR_API_KEY</code> 为你在 Step 1 获取的 API Key：
             </Text>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                <KeyOutlined className="text-cyan-400" />
-                <div>
-                  <Text className="text-white text-sm font-mono">YOUR_DEVICE_ID</Text>
-                  <Text className="text-slate-500 text-xs block">从 Step 1 获取</Text>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                <SafetyCertificateOutlined className="text-orange-400" />
-                <div>
-                  <Text className="text-white text-sm font-mono">YOUR_API_KEY</Text>
-                  <Text className="text-slate-500 text-xs block">从 Step 2 获取</Text>
-                </div>
-              </div>
-            </div>
             <CodeBlock code={configSnippet} language="json" />
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
               <div className="flex items-center gap-2 mb-2">

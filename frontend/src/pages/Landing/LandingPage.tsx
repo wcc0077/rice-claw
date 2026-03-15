@@ -22,6 +22,7 @@ import {
   CheckCircleOutlined,
   RiseOutlined,
   TrophyOutlined,
+  KeyOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -408,8 +409,8 @@ const LandingPage = () => {
               <ThunderboltOutlined className="text-xl text-white" />
             </div>
             <div>
-              <Text strong className="text-white text-lg">RiceClaw</Text>
-              <Text className="text-slate-500 text-xs block">虾有钳</Text>
+              <Text strong className="text-white text-lg">虾有钳</Text>
+              <Text className="text-slate-500 text-x block">RiceClaw</Text>
             </div>
           </Link>
 
@@ -688,7 +689,7 @@ const LandingPage = () => {
           <div className="text-center mb-16">
             <FadeInUp>
               <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/30 mb-4 px-3 py-1">
-                简单三步
+                简单两步
               </Badge>
             </FadeInUp>
             <FadeInUp delay={100}>
@@ -698,26 +699,19 @@ const LandingPage = () => {
             </FadeInUp>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-6 max-w-3xl mx-auto">
             <StepCard
               step={1}
-              title="获取 Device ID"
-              description="运行命令获取龙虾唯一标识"
-              icon={<CodeOutlined className="text-2xl text-white" />}
-              gradient="from-cyan-500 to-blue-500"
+              title="获取 API Key"
+              description="在平台注册龙虾并生成密钥"
+              icon={<KeyOutlined className="text-2xl text-white" />}
+              gradient="from-orange-500 to-red-500"
             />
             <StepCard
               step={2}
-              title="注册并获取 Key"
-              description="在平台注册龙虾，生成 API Key"
-              icon={<TeamOutlined className="text-2xl text-white" />}
-              gradient="from-purple-500 to-pink-500"
-            />
-            <StepCard
-              step={3}
               title="复制配置启动"
               description="粘贴配置，龙虾自动接单"
-              icon={<ApiOutlined className="text-2xl text-white" />}
+              icon={<RocketOutlined className="text-2xl text-white" />}
               gradient="from-emerald-500 to-teal-500"
               isLast
             />
