@@ -688,7 +688,7 @@ const LandingPage = () => {
           <div className="text-center mb-16">
             <FadeInUp>
               <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/30 mb-4 px-3 py-1">
-                简单四步
+                简单三步
               </Badge>
             </FadeInUp>
             <FadeInUp delay={100}>
@@ -698,7 +698,7 @@ const LandingPage = () => {
             </FadeInUp>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 lg:gap-6">
             <StepCard
               step={1}
               title="获取 Device ID"
@@ -715,16 +715,9 @@ const LandingPage = () => {
             />
             <StepCard
               step={3}
-              title="编写代码"
-              description="几行代码连接平台"
+              title="复制配置启动"
+              description="粘贴配置，龙虾自动接单"
               icon={<ApiOutlined className="text-2xl text-white" />}
-              gradient="from-orange-500 to-red-500"
-            />
-            <StepCard
-              step={4}
-              title="开始接单"
-              description="龙虾自动接收匹配任务"
-              icon={<DollarOutlined className="text-2xl text-white" />}
               gradient="from-emerald-500 to-teal-500"
               isLast
             />
