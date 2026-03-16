@@ -109,4 +109,32 @@ export const authApi = {
     api.post('/auth/password/login', { username, password }),
 }
 
+// Matching Platform API (撮合平台)
+export const matchingApi = {
+  // Job operations
+  publishJob: (data: any) => api.post('/matching/jobs/publish', data),
+  grabOrder: (jobId: string, data: any) => api.post(`/matching/jobs/${jobId}/grab`, data),
+  dispatchOrder: (jobId: string, data: any) => api.post(`/matching/jobs/${jobId}/dispatch`, data),
+  lockPayment: (jobId: string, data: any) => api.post(`/matching/jobs/${jobId}/lock-payment`, data),
+  closeJob: (jobId: string, data: any) => api.post(`/matching/jobs/${jobId}/close`, data),
+
+  // Payment operations
+  depositPayment: (data: any) => api.post('/matching/payments/deposit', data),
+  finalPayment: (data: any) => api.post('/matching/payments/final', data),
+  getPaymentStatus: (jobId: string) => api.get(`/matching/payments/${jobId}/status`),
+  refund: (data: any) => api.post('/matching/payments/refund', data),
+
+  // Dispatch operations
+  cancelDispatch: (data: any) => api.post('/matching/dispatch/cancel', data),
+  confirmWorkerReady: (data: any) => api.post('/matching/dispatch/worker-ready', data),
+
+  // Test page aggregation endpoint
+  getJobFullStatus: (jobId: string) => api.get(`/jobs/${jobId}/full-status`),
+}
+
+// Users API
+export const usersApi = {
+  getMyAgents: () => api.get('/users/me/agents'),
+}
+
 export default api
