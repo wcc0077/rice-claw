@@ -87,10 +87,10 @@ Phase 7: 安全防护体系实现
 - [x] 实现 PromptGuard (Prompt Injection 检测)
 - [x] 实现 OutputGuard (输出内容审查)
 - [x] 实现 RateLimiter (速率限制)
-- [ ] 集成到 API 路由
+- [x] 集成到 API 路由
 - [ ] 实现行为分析器
 - [ ] 实现安全告警系统
-- **Status:** in_progress
+- **Status:** complete (core security features)
 
 ## Notes
 
