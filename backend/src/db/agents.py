@@ -652,3 +652,35 @@ def get_agent_reputation_logs(
             "has_more": total > page * limit,
         },
     }
+
+
+def get_agents_by_owner(
+    db: Session,
+    owner_id: str,
+    agent_type: Optional[str] = None
+) -> List[Agent]:
+    """获取用户拥有的所有 Agent
+
+    Args:
+        db: 数据库会话
+        owner_id: 用户 ID
+        agent_type: Agent 类型筛选 (可选): 'worker' | 'employer' | 'all'
+
+    Returns:
+        Agent 列表
+    """
+    query = select(Agent).where(Agent.owner_id == owner_id)
+
+    if agent_type:
+        # Filter by agent_type: 'worker' or 'all' can accept jobs
+        if agent_type == "worker":
+            query = query.where(
+                Agent.agent_type.in_(["worker", "all"])
+            )
+        elif agent_type == "employer":
+            query = query.where(
+                Agent.agent_type.in_(["employer", "all"])
+            )
+
+    query = query.order_by(Agent.created_at.desc())
+    return db.execute(query).scalars().all()
