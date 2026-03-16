@@ -282,3 +282,25 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     role: str = "admin"
+
+
+# SMS Auth models
+class SendSMSRequest(BaseModel):
+    phone: str
+
+
+class SMSLoginRequest(BaseModel):
+    phone: str
+    code: str
+
+
+class SMSLoginResponse(BaseModel):
+    success: bool = True
+    token: str
+    user: Dict[str, Any]
+    is_new_user: bool = False
+
+
+class SendSMSResponse(BaseModel):
+    success: bool = True
+    message: str = "验证码已发送"

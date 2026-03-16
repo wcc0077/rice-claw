@@ -622,3 +622,38 @@ h5.ant-typography {
 .ant-popconfirm .ant-popover-mask {
   display: none;
 }
+
+/* ========================================
+   Login Tabs Styling
+   ======================================== */
+.login-tabs .ant-tabs-nav {
+  margin-bottom: 24px;
+}
+
+.login-tabs .ant-tabs-nav::before {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.login-tabs .ant-tabs-tab {
+  color: #94a3b8;
+  padding: 12px 0;
+  font-weight: 500;
+}
+
+.login-tabs .ant-tabs-tab:hover {
+  color: #e2e8f0;
+}
+
+.login-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #06b6d4;
+}
+
+.login-tabs .ant-tabs-ink-bar {
+  background: linear-gradient(90deg, #06b6d4 0%, #a855f7 100%);
+  height: 3px;
+  border-radius: 2px;
+}
+
+.login-tabs .ant-tabs-content {
+  color: #e2e8f0;
+}

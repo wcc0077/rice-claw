@@ -289,7 +289,9 @@ class AdminUser(Base):
 
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)  # Optional for phone-only users
+    phone: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     role: Mapped[str] = mapped_column(String(16), default="admin")
     status: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
@@ -299,6 +301,8 @@ class AdminUser(Base):
         return {
             "user_id": self.user_id,
             "username": self.username,
+            "phone": self.phone,
+            "phone_verified": self.phone_verified,
             "role": self.role,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -384,4 +388,48 @@ class ReputationLog(Base):
             "activity_change": self.activity_change,
             "description": self.description,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class SmsVerificationCode(Base):
+    """短信验证码模型"""
+    __tablename__ = "sms_verification_codes"
+
+    code_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False, default="login")  # 'login' | 'bind_phone'
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)  # 验证尝试次数
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "code_id": self.code_id,
+            "phone": self.phone,
+            "purpose": self.purpose,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "used": self.used,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class SmsRateLimit(Base):
+    """短信发送频率限制模型"""
+    __tablename__ = "sms_rate_limits"
+
+    phone: Mapped[str] = mapped_column(String(20), primary_key=True)
+    send_count: Mapped[int] = mapped_column(Integer, default=1)
+    window_start: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    last_sent_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "phone": self.phone,
+            "send_count": self.send_count,
+            "window_start": self.window_start.isoformat() if self.window_start else None,
+            "last_sent_at": self.last_sent_at.isoformat() if self.last_sent_at else None,
         }

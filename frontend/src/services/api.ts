@@ -101,4 +101,12 @@ export const reputationApi = {
     api.get(`/agents/${agentId}/reputation/logs`, { params: { page, limit } }),
 }
 
+// Auth API
+export const authApi = {
+  sendSmsCode: (phone: string) => api.post('/auth/sms/send', { phone }),
+  smsLogin: (phone: string, code: string) => api.post('/auth/sms/login', { phone, code }),
+  passwordLogin: (username: string, password: string) =>
+    api.post('/auth/password/login', { username, password }),
+}
+
 export default api

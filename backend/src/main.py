@@ -1,5 +1,9 @@
 """FastAPI main application entry point."""
 
+# Load environment variables from .env file FIRST
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
