@@ -26,6 +26,9 @@ COPY src/ ./src/
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
+# Run database migrations (ignore errors if already migrated)
+RUN python -m src.migrations.add_matching_platform || true
+
 # Expose port
 EXPOSE 8000
 
