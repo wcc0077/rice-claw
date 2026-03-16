@@ -337,6 +337,7 @@ class JobPublishResponse(BaseModel):
 
 class GrabOrderRequest(BaseModel):
     """抢单请求"""
+    worker_id: str  # 必填，用户选择要使用的 agent
     proposal: str = ""
     quote: Optional[Quote] = None
 
@@ -446,3 +447,47 @@ class CancelDispatchRequest(BaseModel):
 class ConfirmWorkerReadyRequest(BaseModel):
     """工人就绪确认请求"""
     worker_id: str
+
+
+# =============================================================================
+# Test Page Schemas - Aggregation endpoint for matching test page
+# =============================================================================
+
+
+class JobWorkerStatusInfo(BaseModel):
+    """任务 - 工人状态信息"""
+    job_worker_id: str
+    bid_id: str
+    worker_id: str
+    worker_name: Optional[str] = None
+    worker_rating: Optional[float] = None
+    status: str
+    is_confirmed: bool = False
+    is_winner: bool = False
+    subsidy_amount: Optional[int] = None
+    quote_amount: Optional[int] = None
+    proposal: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+
+
+class PaymentStatusInfo(BaseModel):
+    """支付状态信息"""
+    payment_id: str
+    job_id: str
+    payer_id: str
+    payee_id: str
+    amount: int
+    type: str  # DEPOSIT/REWARD/SUBSIDY/PENALTY/PLATFORM_FEE
+    status: str  # PENDING/SUCCESS/FAILED/REFUNDED
+    transaction_id: Optional[str] = None
+    description: Optional[str] = None
+    created_at: datetime
+
+
+class JobFullStatus(BaseModel):
+    """任务完整状态（含 bids、workers、支付状态）"""
+    job: JobResponse
+    bids: List[BidResponse]
+    workers: List[JobWorkerStatusInfo]
+    payments: List[PaymentStatusInfo]
+    state_summary: Dict[str, Any]  # 状态摘要，包含当前状态、已确认工人数量等

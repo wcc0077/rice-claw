@@ -1,13 +1,18 @@
 """Matching Platform API - 撮合平台接口
 
-提供任务发布、抢单、派单、支付等撮合功能接口
+Provides task publishing, bidding, dispatch, payment and other matching functionality
+
+Security Integration:
+- Rate limiting via Redis sliding window
+- Prompt Injection detection via PromptGuard
+- Content sanitization for suspicious input
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
 from typing import Annotated
-from redis import asyncio as aioredis
 from loguru import logger
 
 from ..db.database import get_db
@@ -16,12 +21,12 @@ from ..services.job_service import JobService, create_job_service
 from ..services.payment_service import PaymentService, create_payment_service
 from ..services.dispatch_service import DispatchService, create_dispatch_service
 from ..security import (
-    PromptGuard,
-    OutputGuard,
-    ThreatLevel,
     raise_if_rate_limited,
+    RateLimitType,
+    validate_content_field,
 )
-from ..security.integration import rate_limit, validate_prompt
+from ..dependencies import RedisSession, PromptGuardStrict, PromptGuardStrict
+from ..auth.jwt_config import JWT_SECRET_KEY, JWT_ALGORITHM
 from ..models.schemas import (
     JobPublishRequest,
     JobPublishResponse,
@@ -43,36 +48,28 @@ from ..models.schemas import (
 
 router = APIRouter()
 
+# Security scheme for JWT authentication
+security = HTTPBearer()
+
+
+async def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> str:
+    """Extract user ID from JWT token."""
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return str(user_id)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 
 # ========== 依赖注入 ==========
 
 DbSession = Annotated[Session, Depends(get_db)]
-
-
-def get_redis() -> aioredis.Redis:
-    """获取 Redis 连接实例"""
-    from redis import asyncio as aioredis
-    return aioredis.from_url(
-        "redis://localhost:6379/0",
-        decode_responses=True
-    )
-
-
-RedisSession = Annotated[aioredis.Redis, Depends(get_redis)]
-
-
-def get_prompt_guard() -> PromptGuard:
-    """获取 PromptGuard 实例"""
-    return PromptGuard(strict_mode=True)
-
-
-def get_output_guard() -> OutputGuard:
-    """获取 OutputGuard 实例"""
-    return OutputGuard()
-
-
-PromptGuardSession = Annotated[PromptGuard, Depends(get_prompt_guard)]
-OutputGuardSession = Annotated[OutputGuard, Depends(get_output_guard)]
 
 
 def get_job_service(db: DbSession, redis: RedisSession) -> JobService:
@@ -92,9 +89,12 @@ def get_dispatch_service(db: DbSession, redis: RedisSession) -> DispatchService:
 
 # ========== 统一安全处理 ==========
 
+from typing import Any
+
+
 async def validate_user_input(
-    redis: aioredis.Redis,
-    guard: PromptGuard,
+    redis: Any,
+    guard: Any,
     user_id: str,
     rate_limit_type: str,
     **content_fields
@@ -121,21 +121,7 @@ async def validate_user_input(
     # 验证每个字段
     validated = {}
     for field_name, content in content_fields.items():
-        if not content:
-            continue
-
-        result = guard.analyze(content)
-        if result.threat_level == ThreatLevel.DANGEROUS:
-            logger.warning(f"{field_name} contains dangerous patterns: {result.detected_patterns}")
-            raise HTTPException(
-                status_code=400,
-                detail=f"{field_name}包含危险内容：{result.detected_patterns[0] if result.detected_patterns else 'unknown'}"
-            )
-        if result.threat_level == ThreatLevel.SUSPICIOUS:
-            logger.info(f"{field_name} sanitized, detected patterns: {result.detected_patterns}")
-            validated[field_name] = result.sanitized_content
-        else:
-            validated[field_name] = content
+        validated[field_name] = await validate_content_field(guard, content, field_name)
 
     return validated
 
@@ -147,7 +133,7 @@ async def publish_job(
     request: JobPublishRequest,
     employer_id: str,
     redis: RedisSession,
-    guard: PromptGuardSession,
+    guard: PromptGuardStrict,
     service: JobService = Depends(get_job_service)
 ):
     """发布任务
@@ -159,7 +145,7 @@ async def publish_job(
         redis=redis,
         guard=guard,
         user_id=employer_id,
-        rate_limit_type="job_create_hour",
+        rate_limit_type=RateLimitType.JOB_CREATE_HOUR,
         description=request.description,
         title=request.title
     )
@@ -186,17 +172,18 @@ async def publish_job(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        logger.exception(f"Error publishing job for employer {employer_id}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/jobs/{job_id}/grab", response_model=GrabOrderResponse)
 async def grab_order(
     job_id: str,
     request: GrabOrderRequest,
-    worker_id: str,
     redis: RedisSession,
-    guard: PromptGuardSession,
-    service: JobService = Depends(get_job_service)
+    guard: PromptGuardStrict,
+    service: JobService = Depends(get_job_service),
+    user_id: str = Depends(get_current_user_id)
 ):
     """抢单
 
@@ -206,21 +193,25 @@ async def grab_order(
     validated = await validate_user_input(
         redis=redis,
         guard=guard,
-        user_id=worker_id,
-        rate_limit_type="bid_submit_hour",
+        user_id=user_id,
+        rate_limit_type=RateLimitType.BID_SUBMIT_HOUR,
         proposal=request.proposal
     )
 
-    # 验证工人是否存在
-    worker = agent_dal.get_agent(service.db, worker_id)
+    # 验证 worker 是否存在
+    worker = agent_dal.get_agent(service.db, request.worker_id)
     if not worker:
-        raise HTTPException(status_code=400, detail=f"工人 {worker_id} 不存在")
+        raise HTTPException(status_code=400, detail=f"工人 {request.worker_id} 不存在")
+
+    # 验证 worker_id 是否属于当前用户
+    if worker.owner_id and worker.owner_id != user_id:
+        raise HTTPException(status_code=403, detail="该 Agent 不属于您")
 
     quote_data = request.quote.model_dump() if request.quote else None
 
     result = await service.grab_order(
         job_id=job_id,
-        worker_id=worker_id,
+        worker_id=request.worker_id,
         proposal=validated.get("proposal", request.proposal),
         quote=quote_data
     )

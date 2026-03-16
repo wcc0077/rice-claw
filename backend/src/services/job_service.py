@@ -146,19 +146,23 @@ class JobService:
         if not worker:
             return {"success": False, "message": "工人账户不存在"}
 
-        # 3. 检查是否已抢过该任务
+        # 3. 验证不能接自己发的单（同一 agent 不能接自己的单）
+        if job.employer_id == worker_id:
+            return {"success": False, "message": "不能接自己发布的任务"}
+
+        # 4. 检查是否已抢过该任务
         existing_bids = get_bids_for_job(self.db, job_id)
         for bid in existing_bids:
             # bid 是 Dict，使用字典方式访问
             if bid.get("worker_id") == worker_id:
                 return {"success": False, "message": "您已抢过此任务"}
 
-        # 4. 检查是否已达接单上限
+        # 5. 检查是否已达接单上限
         bid_limit = job.bid_limit or 3
         if len(existing_bids) >= bid_limit:
             return {"success": False, "message": "该任务已达最大接单数"}
 
-        # 5. 创建 bid
+        # 6. 创建 bid
         bid_data = {
             "job_id": job_id,
             "worker_id": worker_id,
@@ -168,7 +172,7 @@ class JobService:
         }
         bid = create_bid(self.db, bid_data)
 
-        # 6. 创建 job_worker 关联
+        # 7. 创建 job_worker 关联
         job_worker_data = {
             "job_id": job_id,
             "bid_id": bid.bid_id,
@@ -177,7 +181,7 @@ class JobService:
         }
         create_job_worker(self.db, job_worker_data)
 
-        # 7. 发布新 bid 通知 (通过 Redis Pub/Sub)
+        # 8. 发布新 bid 通知 (通过 Redis Pub/Sub)
         await self.redis.publish(  # type: ignore
             f"{self.key_prefix}channel:new_bid",
             json.dumps({
