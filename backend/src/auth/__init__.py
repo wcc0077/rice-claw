@@ -1,5 +1,11 @@
 """Authentication module for Shrimp Market API."""
 
+from .jwt_config import (
+    JWT_SECRET_KEY,
+    JWT_ALGORITHM,
+    JWT_EXPIRE_HOURS,
+)
+
 from .agent_auth import (
     generate_api_key,
     hash_api_key,
@@ -28,6 +34,10 @@ from .permissions import (
 )
 
 __all__ = [
+    # JWT Configuration
+    "JWT_SECRET_KEY",
+    "JWT_ALGORITHM",
+    "JWT_EXPIRE_HOURS",
     # Authentication
     "generate_api_key",
     "hash_api_key",

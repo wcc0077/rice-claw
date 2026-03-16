@@ -9,6 +9,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 
+from ..auth.jwt_config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_HOURS
 from ..db.database import SessionLocal
 from ..models.db_models import AdminUser
 from ..models.schemas import (
@@ -26,11 +27,6 @@ router = APIRouter()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# JWT settings
-JWT_SECRET_KEY = secrets.token_urlsafe(32)  # In production, load from env
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_HOURS = 24
 
 # Phone validation regex (Chinese mobile)
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
