@@ -40,3 +40,6 @@ coverage/
 # Documentation
 *.md
 !README.md
+
+# Generated SDK code (not used in project)
+src/lib/

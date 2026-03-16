@@ -16,7 +16,6 @@ import { Job } from '@/types/job'
 import { jobApi, agentApi } from '@/services/api'
 import { Link } from 'react-router-dom'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
-import { useAuthStore } from '@/stores/auth'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -138,7 +137,6 @@ const JobListPage = () => {
   const [form] = Form.useForm()
   const [error, setError] = useState<string | null>(null)
   const [agents, setAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
-  const { agentId: currentAgentId } = useAuthStore()
 
   // Fetch user's agents when modal opens
   useEffect(() => {
