@@ -56,6 +56,8 @@ function App() {
           {/* Public routes with Tab Layout */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
           {/* Tab Layout pages (接入指南, 任务广场, 声誉体系, 安全防护) */}
           <Route element={<TabLayout />}>

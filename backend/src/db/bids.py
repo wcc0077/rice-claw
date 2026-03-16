@@ -92,6 +92,25 @@ def get_bid_dict(db: Session, bid_id: str) -> Optional[Dict[str, Any]]:
     return bid.to_dict_with_quote()
 
 
+def get_bids_by_worker(db: Session, worker_id: str) -> List[Dict[str, Any]]:
+    """获取工人的所有竞标
+
+    Args:
+        db: 数据库会话
+        worker_id: 工人ID
+
+    Returns:
+        竞标字典列表
+    """
+    bids = db.execute(
+        select(Bid)
+        .where(Bid.worker_id == worker_id)
+        .order_by(Bid.submitted_at.desc())
+    ).scalars().all()
+
+    return [bid.to_dict_with_quote() for bid in bids]
+
+
 def get_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
     """获取任务的所有竞标"""
     bids = db.execute(

@@ -132,10 +132,10 @@ const Header = memo(({
           <Button
             type="text"
             icon={<ShopOutlined />}
-            onClick={() => navigate('/market')}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 text-slate-400 hover:text-cyan-400 border border-slate-700/50 hover:border-cyan-500/30 rounded-lg px-3"
           >
-            <span className="hidden sm:inline">广场</span>
+            <span className="hidden sm:inline">首页</span>
           </Button>
         </Tooltip>
 

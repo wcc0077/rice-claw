@@ -152,45 +152,58 @@
 - **Status:** pending
 
 ### Phase 7: 安全防护体系实现
-- **Status:** complete
+- **Status:** complete (core security features + code review)
 - **Started:** 2026-03-16 20:00
 - **Completed:** 2026-03-16 22:00
+- **Code Review:** 2026-03-16 22:30
 - Actions taken:
   - 创建安全防护体系设计文档 `docs/security/agent-security-architecture.md`
-    - 威胁分析 (LLM 特定风险 + 传统 Web 安全)
-    - 分层防御架构设计
-    - Prompt Injection 防护方案
-    - Agent 身份验证增强
-    - 速率限制与资源保护
-    - 审计与溯源设计
-    - 前端安全防护
-    - 安全配置清单
-    - 事件响应流程
-  - 实现 `backend/src/security/prompt_guard.py`
-    - Prompt Injection 检测器
-    - 支持中文和英文模式检测
-    - 威胁等级判定 (SAFE/SUSPICIOUS/DANGEROUS)
-    - 内容净化功能
-  - 实现 `backend/src/security/output_guard.py`
-    - 输出内容审查器
-    - 敏感信息脱敏 (API Key、密码、手机号、邮箱等)
-    - 潜在信息泄露检测
-  - 实现 `backend/src/security/rate_limiter.py`
-    - Redis 驱动速率限制器
-    - 滑动窗口算法
-    - 多层级限制 (API、任务创建、竞标、消息)
-    - 用户等级倍数配置
-  - 创建 `backend/src/security/__init__.py`
-    - 安全模块导出
-  - 实现 `backend/src/security/integration.py`
-    - 安全中间件设置
-    - 装饰器方式的速率限制和 Prompt 验证
-    - 统一安全处理函数
+  - 实现 `backend/src/security/prompt_guard.py` - Prompt Injection 检测器
+  - 实现 `backend/src/security/output_guard.py` - 输出内容审查器
+  - 实现 `backend/src/security/rate_limiter.py` - Redis 速率限制器
+  - 创建 `backend/src/security/__init__.py` - 安全模块导出
+  - 实现 `backend/src/security/integration.py` - 安全集成工具
   - **集成到 API 路由:**
-    - 更新 `backend/src/api/matching.py` - 为所有端点添加速率限制和 Prompt Injection 检测
-    - 更新 `backend/src/api/messages.py` - 为消息创建添加速率限制和内容审查
+    - 更新 `backend/src/api/matching.py` - 12 个端点全部添加速率限制和 Prompt Injection 检测
+    - 更新 `backend/src/api/messages.py` - 消息创建添加速率限制和 Prompt Injection 检测
   - **验证测试:**
     - 运行 `test_security_setup()` - 所有测试通过
+  - **Code Review 修复 (/simplify):**
+    - 创建 `backend/src/dependencies.py` - 共享依赖注入模块
+      - Redis 单例连接池 (避免每请求创建开销)
+      - PromptGuard/OutputGuard 单例 (LRU cache, 避免重复编译 40+ 正则)
+    - 创建 `RateLimitType` 枚举 - 替代 stringly-typed 速率限制类型
+    - 创建 `validate_content_field()` - 统一内容验证函数 (消除 3 处重复代码)
+    - 修复 `redact_response()` - 现在支持递归字典/列表脱敏
+    - 移除 `matching.py` 和 `messages.py` 中重复的依赖函数
+    - 更新所有 API 端点使用 `RateLimitType` 枚举
+    - 改进异常处理 (使用 `logger.exception` 替代泄露内部异常)
+    - 移除 `integration.py` 中注释掉的示例代码 (清理 30+ 行)
+    - 修复 CSP 头配置 (移除 'unsafe-inline' 提升生产安全性)
+
+### Bug 修复：前端路由问题
+- **Status:** complete
+- **Fixed:** 2026-03-16
+- **问题描述：** 点击任务列表的"查看"按钮无法打开任务详情页
+- **根本原因：** Link 路径与路由配置不匹配
+  - 路由配置：`/dashboard/jobs/:jobId` (嵌套在 /dashboard 下)
+  - Link 路径：`/jobs/:jobId` (缺少 /dashboard 前缀)
+- **修复文件:**
+  - `frontend/src/pages/Jobs/JobListPage.tsx` (2 处)
+  - `frontend/src/pages/Dashboard/RecentJobsTable.tsx` (1 处)
+
+### Session: 2026-03-16 (续) - 安全模块 Code Review
+- **Status:** complete
+- **Actions taken:**
+  - 创建 `backend/src/security/__init__.py` - 统一导出安全模块
+  - 重构 `backend/src/security/integration.py`:
+    - 新增 `RateLimitType` 枚举定义
+    - 新增 `validate_content_field()` 统一验证函数
+    - 修复 `redact_response()` 支持递归脱敏
+    - 移除未使用的示例代码
+  - 更新 `backend/src/api/matching.py` - 使用共享依赖
+  - 更新 `backend/src/api/messages.py` - 使用共享依赖
+  - 修复前端路由问题 (见上节)
 
 ## Files Created/Modified
 

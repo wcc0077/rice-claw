@@ -2,10 +2,13 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from typing import List
 
 from ..db.database import get_db
 from ..db import agents as agent_dal
+from ..db import bids as bid_dal
 from ..models.schemas import AgentCreate, AgentUpdate, AgentEdit, AgentResponse, AgentListResponse
+from ..auth.dependencies import get_current_agent
 
 router = APIRouter()
 
@@ -220,3 +223,78 @@ async def get_reputation_logs_endpoint(
     """
     result = agent_dal.get_agent_reputation_logs(db, agent_id, page=page, limit=limit)
     return result
+
+
+# =============================================================================
+# OpenClaw Skill API Endpoints - "me" routes for authenticated agents
+# =============================================================================
+
+
+@router.get("/me", response_model=AgentResponse)
+async def get_current_agent_endpoint(
+    current_agent = Depends(get_current_agent)
+):
+    """Get the current authenticated agent's information."""
+    return AgentResponse(**current_agent.to_dict())
+
+
+@router.put("/me/capabilities", response_model=AgentResponse)
+async def update_current_agent_capabilities(
+    capabilities: List[str],
+    name: str | None = None,
+    current_agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Update the current agent's capabilities.
+
+    Workers use this to register their skills and receive matching job notifications.
+    """
+    agent = agent_dal.update_agent(
+        db,
+        current_agent.agent_id,
+        name=name,
+        capabilities=capabilities
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return AgentResponse(**agent.to_dict())
+
+
+@router.put("/me/status", response_model=AgentResponse)
+async def update_current_agent_status(
+    status: str,
+    current_agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Update the current agent's availability status.
+
+    Valid statuses: 'idle', 'busy', 'offline'
+    """
+    valid_statuses = ["idle", "busy", "offline"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+
+    agent = agent_dal.update_agent_status(db, current_agent.agent_id, status)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return AgentResponse(**agent.to_dict())
+
+
+@router.get("/me/bids")
+async def get_current_agent_bids_endpoint(
+    current_agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Get all bids submitted by the current agent.
+
+    Workers use this to track their bid status across all jobs.
+    """
+    bids = bid_dal.get_bids_by_worker(db, current_agent.agent_id)
+    return {
+        "bids": bids,
+        "total": len(bids),
+        "agent_id": current_agent.agent_id
+    }

@@ -213,7 +213,7 @@ const JobListPage = () => {
       key: 'title',
       render: (_, record) => (
         <Link
-          to={`/jobs/${record.job_id}`}
+          to={`/dashboard/jobs/${record.job_id}`}
           className="text-slate-200 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50 rounded px-1 -mx-1"
         >
           <Text strong className="text-inherit">{record.title}</Text>
@@ -253,7 +253,7 @@ const JobListPage = () => {
       width: 180,
       render: (_, record) => (
         <Space size="small">
-          <Link to={`/jobs/${record.job_id}`}>
+          <Link to={`/dashboard/jobs/${record.job_id}`}>
             <Button
               type="link"
               size="small"

@@ -1,6 +1,7 @@
 /**
  * RiceClaw Landing Page - Breathtaking Edition
  * Delicate, dynamic, concise, and trustworthy
+ * With tab switching for 接入指南, 任务广场, 声誉体系, 安全防护
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -26,7 +27,16 @@ import {
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 
+// Import page content components
+import ConnectGuideContent from './ConnectGuideContent'
+import MarketContent from './MarketContent'
+import ReputationContent from './ReputationContent'
+import SecurityContent from './SecurityContent'
+
 const { Title, Text } = Typography
+
+// Tab type
+type TabType = 'home' | 'connect' | 'market' | 'reputation' | 'security'
 
 // ===== ANIMATION COMPONENTS =====
 
@@ -356,86 +366,11 @@ const trustBadges = [
   { icon: <ThunderboltOutlined />, text: '7×24自动派单' },
 ]
 
-// ===== MAIN COMPONENT =====
+// ===== HOME CONTENT COMPONENT =====
 
-const LandingPage = () => {
-  const navigate = useNavigate()
-  const [scrolled, setScrolled] = useState(false)
-
-  // Handle scroll for navbar styling
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50)
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
+const HomeContent = ({ onNavigate }: { onNavigate: (tab: TabType) => void }) => {
   return (
-    <div className="min-h-screen bg-[#0a0a0f] overflow-x-hidden">
-      {/* Global styles for animations */}
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-        @keyframes pulse-glow {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.8; }
-        }
-        @keyframes gradient-shift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .gradient-text {
-          background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #f97316 100%);
-          background-size: 200% 200%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: gradient-shift 5s ease infinite;
-        }
-        .glass-nav {
-          background: rgba(10, 10, 15, 0.7);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-        }
-      `}</style>
-
-      {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'glass-nav border-b border-white/5' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20 transition-transform duration-300 group-hover:scale-105">
-              <ThunderboltOutlined className="text-xl text-white" />
-            </div>
-            <div>
-              <Text strong className="text-white text-lg">虾有钳</Text>
-              <Text className="text-slate-500 text-x block">RiceClaw</Text>
-            </div>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/connect" className="text-slate-400 hover:text-white text-sm transition-colors duration-200">
-              接入指南
-            </Link>
-            <Link to="/market" className="text-slate-400 hover:text-white text-sm transition-colors duration-200">
-              任务广场
-            </Link>
-            <Link to="/dashboard/reputation" className="text-slate-400 hover:text-white text-sm transition-colors duration-200">
-              声誉体系
-            </Link>
-          </div>
-
-          <Button
-            type="primary"
-            onClick={() => navigate('/dashboard')}
-            className="bg-gradient-to-r from-orange-500 to-red-500 border-0 hover:opacity-90 transition-opacity"
-          >
-            进入控制台
-          </Button>
-        </div>
-      </nav>
-
+    <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
         {/* Animated background orbs */}
@@ -504,23 +439,21 @@ const LandingPage = () => {
           {/* CTA buttons */}
           <FadeInUp delay={400}>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <Link to="/connect">
-                <Button
-                  size="large"
-                  type="primary"
-                  className="h-14 px-10 text-lg bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-105 transition-all duration-300"
-                >
-                  <RocketOutlined /> 立即接入
-                </Button>
-              </Link>
-              <Link to="/market">
-                <Button
-                  size="large"
-                  className="h-14 px-10 text-lg bg-white/[0.05] border-white/10 text-white hover:bg-white/[0.1] hover:border-white/20 transition-all duration-300"
-                >
-                  <PlayCircleOutlined /> 看看任务
-                </Button>
-              </Link>
+              <Button
+                size="large"
+                type="primary"
+                onClick={() => onNavigate('connect')}
+                className="h-14 px-10 text-lg bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-105 transition-all duration-300"
+              >
+                <RocketOutlined /> 立即接入
+              </Button>
+              <Button
+                size="large"
+                onClick={() => onNavigate('market')}
+                className="h-14 px-10 text-lg bg-white/[0.05] border-white/10 text-white hover:bg-white/[0.1] hover:border-white/20 transition-all duration-300"
+              >
+                <PlayCircleOutlined /> 看看任务
+              </Button>
             </div>
           </FadeInUp>
 
@@ -719,15 +652,14 @@ const LandingPage = () => {
 
           <FadeInUp delay={400}>
             <div className="text-center mt-12">
-              <Link to="/connect">
-                <Button
-                  size="large"
-                  type="primary"
-                  className="bg-gradient-to-r from-orange-500 to-red-500 border-0 h-12 px-8 hover:scale-105 transition-transform duration-300"
-                >
-                  查看详细接入指南 <ArrowRightOutlined />
-                </Button>
-              </Link>
+              <Button
+                size="large"
+                type="primary"
+                onClick={() => onNavigate('connect')}
+                className="bg-gradient-to-r from-orange-500 to-red-500 border-0 h-12 px-8 hover:scale-105 transition-transform duration-300"
+              >
+                查看详细接入指南 <ArrowRightOutlined />
+              </Button>
             </div>
           </FadeInUp>
         </div>
@@ -787,27 +719,145 @@ const LandingPage = () => {
 
           <FadeInUp delay={200}>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/connect">
-                <Button
-                  size="large"
-                  type="primary"
-                  className="h-14 px-10 text-lg bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-105 transition-all duration-300"
-                >
-                  <RocketOutlined /> 立即接入
-                </Button>
-              </Link>
-              <Link to="/market">
-                <Button
-                  size="large"
-                  className="h-14 px-10 text-lg bg-white/[0.05] border-white/10 text-white hover:bg-white/[0.1] hover:border-white/20 transition-all duration-300"
-                >
-                  浏览任务广场
-                </Button>
-              </Link>
+              <Button
+                size="large"
+                type="primary"
+                onClick={() => onNavigate('connect')}
+                className="h-14 px-10 text-lg bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-105 transition-all duration-300"
+              >
+                <RocketOutlined /> 立即接入
+              </Button>
+              <Button
+                size="large"
+                onClick={() => onNavigate('market')}
+                className="h-14 px-10 text-lg bg-white/[0.05] border-white/10 text-white hover:bg-white/[0.1] hover:border-white/20 transition-all duration-300"
+              >
+                浏览任务广场
+              </Button>
             </div>
           </FadeInUp>
         </div>
       </section>
+    </>
+  )
+}
+
+// ===== MAIN COMPONENT =====
+
+const LandingPage = () => {
+  const navigate = useNavigate()
+  const [scrolled, setScrolled] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabType>('home')
+
+  // Handle scroll for navbar styling
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50)
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Handle tab navigation
+  const handleTabClick = (tab: TabType) => {
+    setActiveTab(tab)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0f] overflow-x-hidden">
+      {/* Global styles for animations */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.8; }
+        }
+        @keyframes gradient-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .gradient-text {
+          background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #f97316 100%);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gradient-shift 5s ease infinite;
+        }
+        .glass-nav {
+          background: rgba(10, 10, 15, 0.7);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+        }
+      `}</style>
+
+      {/* Navigation */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'glass-nav border-b border-white/5' : 'bg-transparent'}`}>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 group" onClick={() => setActiveTab('home')}>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20 transition-transform duration-300 group-hover:scale-105">
+              <ThunderboltOutlined className="text-xl text-white" />
+            </div>
+            <div>
+              <Text strong className="text-white text-lg">虾有钳</Text>
+              <Text className="text-slate-500 text-xs block">RiceClaw</Text>
+            </div>
+          </Link>
+
+          <div className="hidden md:flex items-center gap-8">
+            <button
+              onClick={() => handleTabClick('home')}
+              className={`text-sm transition-colors duration-200 ${activeTab === 'home' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              首页
+            </button>
+            <button
+              onClick={() => handleTabClick('connect')}
+              className={`text-sm transition-colors duration-200 ${activeTab === 'connect' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              接入指南
+            </button>
+            <button
+              onClick={() => handleTabClick('market')}
+              className={`text-sm transition-colors duration-200 ${activeTab === 'market' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              任务广场
+            </button>
+            <button
+              onClick={() => handleTabClick('reputation')}
+              className={`text-sm transition-colors duration-200 ${activeTab === 'reputation' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              声誉体系
+            </button>
+            <button
+              onClick={() => handleTabClick('security')}
+              className={`text-sm transition-colors duration-200 ${activeTab === 'security' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              安全防护
+            </button>
+          </div>
+
+          <Button
+            type="primary"
+            onClick={() => navigate('/dashboard')}
+            className="bg-gradient-to-r from-orange-500 to-red-500 border-0 hover:opacity-90 transition-opacity"
+          >
+            进入控制台
+          </Button>
+        </div>
+      </nav>
+
+      {/* Content Area - Switches based on activeTab */}
+      <div className="pt-20">
+        {activeTab === 'home' && <HomeContent onNavigate={handleTabClick} />}
+        {activeTab === 'connect' && <ConnectGuideContent />}
+        {activeTab === 'market' && <MarketContent />}
+        {activeTab === 'reputation' && <ReputationContent />}
+        {activeTab === 'security' && <SecurityContent />}
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] bg-[#08080c]">
@@ -831,18 +881,20 @@ const LandingPage = () => {
             <div>
               <Text strong className="text-white block mb-4">产品</Text>
               <div className="space-y-3">
-                <Link to="/market" className="text-slate-500 hover:text-white text-sm block transition-colors">任务广场</Link>
-                <Link to="/connect" className="text-slate-500 hover:text-white text-sm block transition-colors">接入指南</Link>
-                <Link to="/dashboard/reputation" className="text-slate-500 hover:text-white text-sm block transition-colors">声誉规则</Link>
+                <button onClick={() => handleTabClick('home')} className="text-slate-500 hover:text-white text-sm block transition-colors">首页</button>
+                <button onClick={() => handleTabClick('connect')} className="text-slate-500 hover:text-white text-sm block transition-colors">接入指南</button>
+                <button onClick={() => handleTabClick('reputation')} className="text-slate-500 hover:text-white text-sm block transition-colors">声誉规则</button>
               </div>
             </div>
 
             <div>
               <Text strong className="text-white block mb-4">资源</Text>
               <div className="space-y-3">
-                <a href="#" className="text-slate-500 hover:text-white text-sm block transition-colors">开发文档</a>
-                <a href="#" className="text-slate-500 hover:text-white text-sm block transition-colors">API 参考</a>
-                <a href="#" className="text-slate-500 hover:text-white text-sm block transition-colors">SDK 下载</a>
+                <a href="https://docs.openclaw.ai/" target="_blank" className="text-slate-500 hover:text-white text-sm block transition-colors"
+                >OpenClaw</a>
+                <a href="https://claude.com/" target="_blank" className="text-slate-500 hover:text-white text-sm block transition-colors"
+                >Claude</a>
+                
               </div>
             </div>
 
@@ -863,8 +915,8 @@ const LandingPage = () => {
               © 2026 RiceClaw 虾有钳. All rights reserved.
             </Text>
             <div className="flex items-center gap-6">
-              <a href="#" className="text-slate-600 hover:text-white text-sm transition-colors">隐私政策</a>
-              <a href="#" className="text-slate-600 hover:text-white text-sm transition-colors">服务条款</a>
+              <Link to="/privacy" className="text-slate-600 hover:text-white text-sm transition-colors">隐私政策</Link>
+              <Link to="/terms" className="text-slate-600 hover:text-white text-sm transition-colors">服务条款</Link>
             </div>
           </div>
         </div>

@@ -202,7 +202,7 @@ const RecentJobsTable = ({ jobs, loading = false }: RecentJobsTableProps) => {
       width: 100,
       render: (_, record) => (
         <Space size="small">
-          <Link to={`/jobs/${record.job_id}`}>
+          <Link to={`/dashboard/jobs/${record.job_id}`}>
             <Button
               type="link"
               size="small"

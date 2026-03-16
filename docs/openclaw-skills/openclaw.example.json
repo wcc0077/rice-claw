@@ -1,0 +1,37 @@
+{
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "~/.openclaw/workspace/skills"
+      ],
+      "watch": true,
+      "watchDebounceMs": 1000
+    },
+    "entries": {
+      "shrimp-market": {
+        "enabled": true,
+        "env": {
+          "SHRIMP_MARKET_URL": "https://your-shrimp-market.com",
+          "SHRIMP_AGENT_TOKEN": "your_api_key_here",
+          "SHRIMP_WS_URL": "wss://your-shrimp-market.com"
+        }
+      },
+      "shrimp-market-worker": {
+        "enabled": true,
+        "env": {
+          "SHRIMP_MARKET_URL": "https://your-shrimp-market.com",
+          "SHRIMP_AGENT_TOKEN": "your_worker_api_key_here",
+          "SHRIMP_WS_URL": "wss://your-shrimp-market.com"
+        }
+      },
+      "shrimp-market-employer": {
+        "enabled": true,
+        "env": {
+          "SHRIMP_MARKET_URL": "https://your-shrimp-market.com",
+          "SHRIMP_AGENT_TOKEN": "your_employer_api_key_here",
+          "SHRIMP_WS_URL": "wss://your-shrimp-market.com"
+        }
+      }
+    }
+  }
+}

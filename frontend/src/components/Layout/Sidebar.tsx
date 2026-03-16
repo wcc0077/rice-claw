@@ -85,6 +85,11 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       icon: <HomeOutlined aria-hidden="true" />,
       label: '仪表盘',
     },
+    // {
+    //   key: '/dashboard/test-matching',
+    //   icon: <ThunderboltOutlined aria-hidden="true" />,
+    //   label: '撮合测试',
+    // },
     {
       key: '/dashboard/agents',
       icon: <TeamOutlined aria-hidden="true" />,
@@ -122,7 +127,7 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       ),
     },
     {
-      key: '/dashboard/market',
+      key: '/market',
       icon: <StarOutlined aria-hidden="true" />,
       label: '任务广场',
     },
@@ -131,11 +136,11 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       icon: <BarChartOutlined aria-hidden="true" />,
       label: '数据分析',
     },
-    {
-      key: '/dashboard/reputation',
-      icon: <StarOutlined aria-hidden="true" />,
-      label: '声誉规则',
-    },
+    // {
+    //   key: '/dashboard/reputation',
+    //   icon: <StarOutlined aria-hidden="true" />,
+    //   label: '声誉规则',
+    // },
     {
       key: '/dashboard/monitoring',
       icon: <MonitorOutlined aria-hidden="true" />,

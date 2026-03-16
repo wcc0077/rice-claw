@@ -64,7 +64,85 @@ async def send_message(websocket, message: dict):
 """
 
 from typing import Optional
+from enum import Enum
 from loguru import logger
+
+from .prompt_guard import PromptGuard, ThreatLevel, AnalysisResult
+from .output_guard import OutputGuard, RedactionResult
+
+
+# =============================================================================
+# Rate Limit Type Enum
+# =============================================================================
+
+class RateLimitType(str, Enum):
+    """Rate limit type definitions - prevents stringly-typed code"""
+
+    # API general limits
+    GLOBAL = "global"
+    API_PER_SECOND = "api_per_second"
+    API_PER_MINUTE = "api_per_minute"
+
+    # Job operations
+    JOB_CREATE_HOUR = "job_create_hour"
+
+    # Bid operations
+    BID_SUBMIT_HOUR = "bid_submit_hour"
+
+    # Message operations
+    MESSAGE_SEND_MINUTE = "message_send_minute"
+
+    # Auth operations
+    LOGIN_ATTEMPT = "login_attempt"
+    SMS_SEND = "sms_send"
+
+    # WebSocket operations
+    WS_CONNECT = "ws_connect"
+
+
+# =============================================================================
+# Unified Content Validation
+# =============================================================================
+
+from fastapi import HTTPException, status
+
+
+async def validate_content_field(
+    guard: "PromptGuard",
+    content: str,
+    field_name: str = "content"
+) -> str:
+    """
+    Validate and sanitize a single content field.
+
+    This is the canonical function for content validation - use this
+    instead of duplicating validation logic across endpoints.
+
+    Args:
+        guard: PromptGuard instance (use singleton from dependencies)
+        content: Content to validate
+        field_name: Field name for error messages
+
+    Returns:
+        Sanitized content (may be same as input if safe)
+
+    Raises:
+        HTTPException: If content is dangerous
+    """
+    if not content:
+        return content  # type: ignore
+
+    result = guard.analyze(content)
+    if result.threat_level == ThreatLevel.DANGEROUS:
+        logger.warning(f"{field_name} contains dangerous patterns: {result.detected_patterns}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_name}包含危险内容：{result.detected_patterns[0] if result.detected_patterns else 'unknown'}"
+        )
+    if result.threat_level == ThreatLevel.SUSPICIOUS:
+        logger.info(f"{field_name} sanitized, detected patterns: {result.detected_patterns}")
+        return result.sanitized_content or content
+    return content
 
 
 # =============================================================================
@@ -184,13 +262,18 @@ def validate_prompt(strict: bool = False):
 # Redaction Helper
 # =============================================================================
 
-def redact_response(response: dict, redact_types: Optional[list] = None) -> dict:
+import json
+from typing import Any
+
+
+def redact_response(response: Any, redact_types: Optional[list] = None) -> Any:
     """
     Redact sensitive data from API response
 
     Args:
-        response: API response dictionary
+        response: API response dictionary or list
         redact_types: Specific types to redact (None = all)
+        Supported types: api_key, password, phone, email, url, ip_address
 
     Usage:
         @router.get("/jobs/{job_id}")
@@ -198,17 +281,27 @@ def redact_response(response: dict, redact_types: Optional[list] = None) -> dict
             job = get_job_by_id(job_id)
             return redact_response(job.to_dict())
     """
-    from src.security import OutputGuard
-
     guard = OutputGuard()
-    result = guard.redact(str(response))
 
-    if result.redaction_count > 0:
-        logger.warning(f"Response contained sensitive data: {result.redaction_types}")
+    def redact_value(value: Any) -> Any:
+        """Recursively redact sensitive data in nested structures"""
+        if isinstance(value, str):
+            result = guard.redact(value)
+            return result.redacted
+        elif isinstance(value, dict):
+            return {k: redact_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [redact_value(item) for item in value]
+        else:
+            return value
 
-    # Parse back to dict (simplified - in production use proper JSON parsing)
-    # This is a placeholder - implement proper dict redaction based on your needs
-    return response
+    redacted = redact_value(response)
+
+    # Log if redactions were made
+    if redacted != response:
+        logger.warning("Response contained sensitive data that was redacted")
+
+    return redacted
 
 
 # =============================================================================
@@ -228,52 +321,16 @@ def add_security_headers(response: Response):
             response = await call_next(request)
             add_security_headers(response)
             return response
+
+    Note: Content-Security-Policy uses 'unsafe-inline' for development.
+          For production, use a proper CSP with nonces or hashes.
     """
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
-
-
-# =============================================================================
-# Example: Secured API Route
-# =============================================================================
-
-"""
-Example of a fully secured API endpoint:
-
-@router.post("/messages/send")
-@rate_limit("message_send_minute")
-@validate_prompt(strict=True)
-async def send_message(
-    request: MessageRequest,
-    db: Session = Depends(get_db),
-    redis: aioredis.Redis = Depends(get_redis),
-    current_agent: Agent = Depends(get_current_agent),
-):
-    from src.security import OutputGuard
-
-    # Validate permissions
-    if not can_send_message(current_agent, request.job_id, request.recipient_id):
-        raise HTTPException(status_code=403, detail="No permission to send message")
-
-    # Create message
-    message = create_message(db, request, current_agent.agent_id)
-
-    # Redact any sensitive data in the message before storing
-    output_guard = OutputGuard()
-    redacted_content = output_guard.redact(request.content).redacted
-
-    # Update message with redacted content if needed
-    if redacted_content != request.content:
-        logger.info(f"Message content redacted for agent {current_agent.agent_id}")
-
-    # Send via WebSocket
-    await send_via_websocket(redis, message)
-
-    return {"message_id": message.message_id, "status": "sent"}
-"""
+    # Note: 'unsafe-inline' weakens CSP - use nonces/hashes in production
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
 
 
 # =============================================================================

@@ -33,6 +33,13 @@ from .permissions import (
     get_accessible_job_ids,
 )
 
+from .dependencies import (
+    get_current_agent,
+    get_current_agent_optional,
+    get_current_employer,
+    get_current_worker,
+)
+
 __all__ = [
     # JWT Configuration
     "JWT_SECRET_KEY",
@@ -43,6 +50,7 @@ __all__ = [
     "hash_api_key",
     "verify_api_key",
     "validate_api_key_format",
+    "extract_key_id",
     "AgentAuthContext",
     # Authorization
     "PermissionDeniedError",
@@ -60,4 +68,9 @@ __all__ = [
     "can_submit_artifact",
     "can_view_artifact",
     "get_accessible_job_ids",
+    # FastAPI Dependencies
+    "get_current_agent",
+    "get_current_agent_optional",
+    "get_current_employer",
+    "get_current_worker",
 ]

@@ -49,6 +49,17 @@ from .rate_limiter import (
     raise_if_rate_limited,
 )
 
+# Integration utilities
+from .integration import (
+    validate_content_field,
+    RateLimitType,
+    setup_security_middleware,
+    rate_limit,
+    validate_prompt,
+    redact_response,
+    add_security_headers,
+)
+
 
 __all__ = [
     # Prompt Guard
@@ -72,4 +83,13 @@ __all__ = [
     "RateLimitConfig",
     "check_rate_limit",
     "raise_if_rate_limited",
+
+    # Integration utilities
+    "RateLimitType",
+    "validate_content_field",
+    "setup_security_middleware",
+    "rate_limit",
+    "validate_prompt",
+    "redact_response",
+    "add_security_headers",
 ]

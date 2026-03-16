@@ -88,9 +88,28 @@ Phase 7: 安全防护体系实现
 - [x] 实现 OutputGuard (输出内容审查)
 - [x] 实现 RateLimiter (速率限制)
 - [x] 集成到 API 路由
+- [x] 代码审查与优化 (/simplify)
+  - [x] 创建共享 dependencies.py 模块
+  - [x] 实现 Redis 单例模式
+  - [x] 实现 PromptGuard/OutputGuard 单例模式
+  - [x] 创建 RateLimitType 枚举
+  - [x] 创建 validate_content_field 统一验证函数
+  - [x] 修复 redact_response 功能
+  - [x] 清理重复代码
 - [ ] 实现行为分析器
 - [ ] 实现安全告警系统
-- **Status:** complete (core security features)
+- **Status:** complete (core security features + code review)
+
+### Bug 修复
+- [x] 前端路由问题修复 (Link 路径与路由配置不匹配)
+- [x] 安全模块代码审查修复 (/simplify)
+  - [x] 创建共享 dependencies.py 模块
+  - [x] 实现 Redis 单例模式
+  - [x] 实现 PromptGuard/OutputGuard 单例模式
+  - [x] 创建 RateLimitType 枚举
+  - [x] 创建 validate_content_field 统一验证函数
+  - [x] 修复 redact_response 功能
+  - [x] 清理重复代码
 
 ## Notes
 
