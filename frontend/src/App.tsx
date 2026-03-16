@@ -3,6 +3,7 @@ import { ConfigProvider, theme } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import MainLayout from './components/Layout/MainLayout'
+import TabLayout from './components/Layout/TabLayout'
 import AuthGuard from './components/Auth/AuthGuard'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import AgentListPage from './pages/Agents/AgentListPage'
@@ -19,6 +20,10 @@ import ReputationPage from './pages/ReputationPage'
 import ConnectGuidePage from './pages/ConnectGuide/ConnectGuidePage'
 import LandingPage from './pages/Landing/LandingPage'
 import SystemMonitor from './pages/SystemMonitor'
+import MatchingTestPage from './pages/MatchingTest/MatchingTestPage'
+import SecurityPage from './pages/Security/SecurityPage'
+import PrivacyPage from './pages/Legal/PrivacyPage'
+import TermsPage from './pages/Legal/TermsPage'
 
 function App() {
   return (
@@ -48,13 +53,19 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
+          {/* Public routes with Tab Layout */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/market" element={<MarketPage />} />
-          <Route path="/connect" element={<ConnectGuidePage />} />
 
-          {/* Protected routes with layout */}
+          {/* Tab Layout pages (接入指南, 任务广场, 声誉体系, 安全防护) */}
+          <Route element={<TabLayout />}>
+            <Route path="/connect" element={<ConnectGuidePage />} />
+            <Route path="/market" element={<MarketPage />} />
+            <Route path="/reputation" element={<ReputationPage />} />
+            <Route path="/security" element={<SecurityPage />} />
+          </Route>
+
+          {/* Protected routes with MainLayout */}
           <Route
             path="/dashboard"
             element={
@@ -64,6 +75,7 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="test-matching" element={<MatchingTestPage />} />
             <Route path="agents" element={<AgentListPage />} />
             <Route path="api-keys" element={<ApiKeyPage />} />
             <Route path="jobs" element={<JobListPage />} />
