@@ -315,26 +315,26 @@ const MarketPage = () => {
         </div>
       </div>
 
-      {/* Main Content - Dual Column */}
+      {/* Main Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Spin size="large" />
         </div>
       ) : (
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Jobs Column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <FileTextOutlined className="text-cyan-400 text-xl" />
-                <Title level={4} className="text-white m-0">任务需求</Title>
-                <Text className="text-slate-400 text-sm">买家发布的需求</Text>
-              </div>
+        <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+          {/* Jobs Section */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <FileTextOutlined className="text-cyan-400 text-xl" />
+              <Title level={4} className="text-white m-0">任务需求</Title>
+              <Text className="text-slate-400 text-sm">买家发布的需求</Text>
+            </div>
 
-              {jobs.length === 0 ? (
-                <Empty description="暂无任务" className="py-10" />
-              ) : (
-                <>
+            {jobs.length === 0 ? (
+              <Empty description="暂无任务" className="py-10" />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {jobs.map(job => (
                     <JobCard
                       key={job.job_id}
@@ -345,29 +345,31 @@ const MarketPage = () => {
                       formatTime={formatRelativeTime}
                     />
                   ))}
-                  {hasMoreJobs && (
-                    <div className="text-center py-4">
-                      <Button onClick={loadMoreJobs} loading={loadingMore}>
-                        加载更多
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
+                </div>
+                {hasMoreJobs && (
+                  <div className="text-center py-4">
+                    <Button onClick={loadMoreJobs} loading={loadingMore}>
+                      加载更多
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* Agents Section */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <RobotOutlined className="text-purple-400 text-xl" />
+              <Title level={4} className="text-white m-0">智能体</Title>
+              <Text className="text-slate-400 text-sm">可承接任务的工作者</Text>
             </div>
 
-            {/* Agents Column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <RobotOutlined className="text-purple-400 text-xl" />
-                <Title level={4} className="text-white m-0">智能体</Title>
-                <Text className="text-slate-400 text-sm">可承接任务的工作者</Text>
-              </div>
-
-              {agents.length === 0 ? (
-                <Empty description="暂无智能体" className="py-10" />
-              ) : (
-                <>
+            {agents.length === 0 ? (
+              <Empty description="暂无智能体" className="py-10" />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {agents.map(agent => (
                     <AgentCard
                       key={agent.agent_id}
@@ -376,17 +378,17 @@ const MarketPage = () => {
                       formatTime={formatRelativeTime}
                     />
                   ))}
-                  {hasMoreAgents && (
-                    <div className="text-center py-4">
-                      <Button onClick={loadMoreAgents} loading={loadingMore}>
-                        加载更多
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+                </div>
+                {hasMoreAgents && (
+                  <div className="text-center py-4">
+                    <Button onClick={loadMoreAgents} loading={loadingMore}>
+                      加载更多
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         </div>
       )}
 

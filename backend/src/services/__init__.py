@@ -18,8 +18,10 @@ from .pubsub_subscriber import (
     shutdown_pubsub_subscriber,
 )
 from .job_service import (
-    JobService,
-    create_job_service,
+    JobService,           # 同步版本 - 供 HTTP API 和 MCP 使用
+    AsyncJobService,      # 异步版本 - 供 WebSocket 使用
+    create_job_service,   # 创建异步版本
+    create_sync_job_service,  # 创建同步版本
 )
 from .payment_service import (
     PaymentService,
@@ -28,6 +30,13 @@ from .payment_service import (
 from .dispatch_service import (
     DispatchService,
     create_dispatch_service,
+)
+from .bid_service import (
+    BidService,
+    BidValidationError,
+)
+from .job_service import (
+    JobValidationError,
 )
 
 __all__ = [
@@ -42,10 +51,15 @@ __all__ = [
     "create_pubsub_subscriber",
     "init_pubsub_subscriber",
     "shutdown_pubsub_subscriber",
-    "JobService",
-    "create_job_service",
+    "JobService",           # 同步版本
+    "AsyncJobService",      # 异步版本
+    "create_job_service",   # 创建异步版本
+    "create_sync_job_service",  # 创建同步版本
     "PaymentService",
     "create_payment_service",
     "DispatchService",
     "create_dispatch_service",
+    "BidService",
+    "BidValidationError",
+    "JobValidationError",
 ]

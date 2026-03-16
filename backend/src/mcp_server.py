@@ -13,10 +13,12 @@ from fastmcp.server.dependencies import get_access_token
 # Import shared DB layer (same as REST API uses)
 from .db.database import SessionLocal
 from .db.agents import get_agent, update_agent_status
-from .db.jobs import create_job, get_job, update_job, match_jobs_by_tags, get_job_dict, delete_job
-from .db.bids import create_bid, get_bids_for_job, update_bid_status
+from .db.jobs import match_jobs_by_tags, get_job_dict, get_job
 from .db.messages import create_message
 from .db.artifacts import create_artifact
+
+# Import Service layer
+from .services import JobService, BidService, JobValidationError, BidValidationError
 
 # Import authentication
 from .auth import PermissionDeniedError
@@ -140,7 +142,7 @@ def publish_job(
 ) -> dict:
     """Publish a new job for workers to bid on.
 
-    Uses the same create_job() as REST API endpoint.
+    Uses the same JobService.create_job() as REST API endpoint.
 
     Args:
         title: Job title
@@ -165,28 +167,27 @@ def publish_job(
                 agent_id=agent["agent_id"]
             )
 
-        # Call shared DB function (same as REST API)
-        job_data = {
-            "employer_id": agent["agent_id"],
-            "title": title,
-            "description": description,
-            "required_tags": required_tags,
-            "budget_min": budget_min,
-            "budget_max": budget_max,
-            "bid_limit": bid_limit,
-        }
-
-        job = create_job(db, job_data)
-        if not job:
-            raise RuntimeError("Failed to create job")
+        # Use JobService (same as REST API)
+        job_service = JobService(db)
+        job = job_service.create_job(
+            employer_id=agent["agent_id"],
+            title=title,
+            description=description,
+            required_tags=required_tags,
+            budget_min=budget_min,
+            budget_max=budget_max,
+            bid_limit=bid_limit,
+        )
 
         return {
-            "job_id": job.job_id,
-            "title": job.title,
-            "status": job.status,
-            "required_tags": job.required_tags.split(",") if job.required_tags else [],
-            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "job_id": job["job_id"],
+            "title": job["title"],
+            "status": job["status"],
+            "required_tags": job["required_tags"],
+            "created_at": job["created_at"],
         }
+    except JobValidationError as e:
+        raise ValueError(str(e))
     finally:
         db.close()
 
@@ -205,9 +206,8 @@ def get_job_details(job_id: str) -> dict:
     get_current_agent()
     db = get_db_session()
     try:
-        job = get_job_dict(db, job_id)
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
+        job_service = JobService(db)
+        job = job_service.get_job(job_id)
 
         return {
             "job_id": job["job_id"],
@@ -219,6 +219,8 @@ def get_job_details(job_id: str) -> dict:
             "status": job["status"],
             "bid_count": job.get("bid_count", 0),
         }
+    except JobValidationError as e:
+        raise ValueError(str(e))
     finally:
         db.close()
 
@@ -239,29 +241,20 @@ def cancel_job(job_id: str) -> dict:
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Check authorization - only the employer who owns the job can delete
-        job = get_job(db, job_id)
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
+        job_service = JobService(db)
 
-        if job.employer_id != agent["agent_id"]:
-            raise PermissionDeniedError(
-                action="delete_job",
-                resource_type="job",
-                resource_id=job_id,
-                agent_id=agent["agent_id"]
-            )
-
-        # Delete the job (soft delete)
-        delete_job(db, job_id)
+        # Delete the job (soft delete) - service handles authorization
+        job_service.delete_job(job_id=job_id, operator_id=agent["agent_id"])
 
         return {
             "job_id": job_id,
             "status": "DELETED",
             "message": f"Job {job_id} has been deleted",
         }
-    except ValueError as e:
+    except JobValidationError as e:
         raise ValueError(str(e))
+    except PermissionDeniedError as e:
+        raise e
     finally:
         db.close()
 
@@ -280,7 +273,7 @@ def submit_bid(
 ) -> dict:
     """Submit a bid for a job.
 
-    Uses the same create_bid() as REST API endpoint.
+    Uses the same BidService.create_bid() as REST API endpoint.
 
     Args:
         job_id: The job ID
@@ -295,39 +288,29 @@ def submit_bid(
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Check authorization - workers and 'all' type can bid
-        if agent["agent_type"] not in ("worker", "all"):
-            raise PermissionDeniedError(
-                action="submit_bid",
-                resource_type="job",
-                resource_id=job_id,
-                agent_id=agent["agent_id"]
-            )
-
-        # Call shared DB function
-        bid_data = {
-            "job_id": job_id,
-            "worker_id": agent["agent_id"],
-            "proposal": proposal,
-            "quote": {
+        # Use BidService (same as REST API)
+        bid_service = BidService(db)
+        bid = bid_service.create_bid(
+            job_id=job_id,
+            worker_id=agent["agent_id"],
+            proposal=proposal,
+            quote={
                 "amount": quote_amount,
                 "currency": quote_currency,
                 "delivery_days": delivery_days,
             },
-        }
+        )
 
-        try:
-            bid = create_bid(db, bid_data)
-            if not bid:
-                raise RuntimeError("Failed to create bid")
-            return {
-                "bid_id": bid.bid_id,
-                "job_id": bid.job_id,
-                "worker_id": bid.worker_id,
-                "status": bid.status,
-            }
-        except ValueError as e:
-            raise ValueError(str(e))
+        return {
+            "bid_id": bid["bid_id"],
+            "job_id": bid["job_id"],
+            "worker_id": bid["worker_id"],
+            "status": bid["status"],
+        }
+    except BidValidationError as e:
+        raise ValueError(str(e))
+    except PermissionDeniedError as e:
+        raise e
     finally:
         db.close()
 
@@ -336,7 +319,7 @@ def submit_bid(
 def get_all_bids(job_id: str) -> list[dict]:
     """Get all bids for a job.
 
-    Uses the same get_bids_for_job() as REST API.
+    Uses the same BidService.get_bids_for_job() as REST API.
 
     Args:
         job_id: The job ID
@@ -347,21 +330,19 @@ def get_all_bids(job_id: str) -> list[dict]:
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Validate job exists
-        job = get_job(db, job_id)
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
+        bid_service = BidService(db)
 
-        # Only job owner can see all bids
-        if job.employer_id != agent["agent_id"]:
+        # Use BidService - handles validation and authorization
+        bids = bid_service.get_bids_for_job(job_id)
+
+        # Verify caller is job owner
+        if bids and bids[0].get("employer_id") != agent["agent_id"]:
             raise PermissionDeniedError(
                 action="view_bids",
                 resource_type="job",
                 resource_id=job_id,
                 agent_id=agent["agent_id"]
             )
-
-        bids = get_bids_for_job(db, job_id)
 
         return [
             {
@@ -374,6 +355,10 @@ def get_all_bids(job_id: str) -> list[dict]:
             }
             for bid in bids
         ]
+    except BidValidationError as e:
+        raise ValueError(str(e))
+    except PermissionDeniedError as e:
+        raise e
     finally:
         db.close()
 
@@ -538,7 +523,7 @@ def finalize_hiring(
 ) -> dict:
     """Finalize hiring for a job after bid evaluation.
 
-    Uses the same update_bid_status() and update_job() as REST API.
+    Uses the same BidService.accept_bid() as REST API.
 
     Args:
         job_id: The job ID
@@ -550,32 +535,27 @@ def finalize_hiring(
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Validate job exists and ownership
-        job = get_job(db, job_id)
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
-        if job.employer_id != agent["agent_id"]:
-            raise PermissionDeniedError(
-                action="finalize_hiring",
-                resource_type="job",
-                resource_id=job_id,
-                agent_id=agent["agent_id"]
-            )
+        bid_service = BidService(db)
 
         hired_workers = []
         for bid_id in bid_ids:
-            updated_bid = update_bid_status(db, bid_id, "SELECTED", is_hired=True)
-            if updated_bid:
-                hired_workers.append(updated_bid.worker_id)
-
-        # Update job status to ACTIVE
-        update_job(db, job_id, {"status": "ACTIVE", "selected_worker_ids": hired_workers})
+            # Use BidService.accept_bid() - handles authorization and state transitions
+            updated_bid = bid_service.accept_bid(
+                job_id=job_id,
+                bid_id=bid_id,
+                employer_id=agent["agent_id"]
+            )
+            hired_workers.append(updated_bid["worker_id"])
 
         return {
             "job_id": job_id,
             "hired_workers": hired_workers,
             "status": "ACTIVE",
         }
+    except BidValidationError as e:
+        raise ValueError(str(e))
+    except PermissionDeniedError as e:
+        raise e
     finally:
         db.close()
 
@@ -584,7 +564,7 @@ def finalize_hiring(
 def verify_and_close(job_id: str, approved: bool = True) -> dict:
     """Verify and close a job after work completion.
 
-    Uses the same update_job() as REST API.
+    Uses the same JobService.update_job_status() as REST API.
 
     Args:
         job_id: The job ID
@@ -596,25 +576,25 @@ def verify_and_close(job_id: str, approved: bool = True) -> dict:
     agent = get_current_agent()
     db = get_db_session()
     try:
-        # Validate job exists and ownership
-        job = get_job(db, job_id)
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
-        if job.employer_id != agent["agent_id"]:
-            raise PermissionDeniedError(
-                action="verify_and_close",
-                resource_type="job",
-                resource_id=job_id,
-                agent_id=agent["agent_id"]
-            )
+        job_service = JobService(db)
 
         new_status = "CLOSED" if approved else "REVIEW"
-        updated_job = update_job(db, job_id, {"status": new_status})
+
+        # Use JobService.update_job_status() - handles authorization and state transitions
+        updated_job = job_service.update_job_status(
+            job_id=job_id,
+            new_status=new_status,
+            operator_id=agent["agent_id"]
+        )
 
         return {
             "job_id": job_id,
-            "status": updated_job.status if updated_job else new_status,
+            "status": updated_job["status"],
             "approved": approved,
         }
+    except JobValidationError as e:
+        raise ValueError(str(e))
+    except PermissionDeniedError as e:
+        raise e
     finally:
         db.close()

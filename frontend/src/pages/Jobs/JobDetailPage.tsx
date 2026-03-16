@@ -156,6 +156,10 @@ const JobDetailPage = () => {
 
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
+            <Text type="secondary">雇主 ID</Text>
+            <div className="font-mono text-xs">{job.employer_id}</div>
+          </div>
+          <div>
             <Text type="secondary">预算</Text>
             <div>¥{job.budget_min || '-'} - ¥{job.budget_max || '-'}</div>
           </div>

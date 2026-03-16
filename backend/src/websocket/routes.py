@@ -12,12 +12,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
 
 from ..db.database import get_db, SessionLocal
-from ..db import bids as bid_dal
-from ..db import job_workers as job_worker_dal
 from ..db import artifacts as artifact_dal
 from ..db import artifact_versions as artifact_version_dal
 from ..db import jobs as job_dal
 from ..db.agents import get_agent_by_api_key
+from ..services import BidService, BidValidationError
 from .manager import ConnectionManager, get_connection_manager
 
 router = APIRouter()
@@ -81,52 +80,49 @@ async def handle_grab_order(
         return
 
     try:
-        # 1. 创建 bid (抢单记录)
-        bid_data = {
-            "job_id": job_id,
-            "worker_id": agent_id,
-            "proposal": data.get("data", {}).get("proposal", ""),
-            "quote": data.get("data", {}).get("quote", {}),
-        }
+        # 使用 BidService 处理抢单
+        bid_service = BidService(db)
+        bid = bid_service.create_bid(
+            job_id=job_id,
+            worker_id=agent_id,
+            proposal=data.get("data", {}).get("proposal", ""),
+            quote=data.get("data", {}).get("quote", {})
+        )
 
-        bid = bid_dal.create_bid(db, bid_data)
+        # 创建 job_worker 关联（Service 提供便捷方法）
+        bid_service.create_job_worker_association(
+            job_id=job_id,
+            bid_id=bid["bid_id"],
+            worker_id=agent_id
+        )
 
-        # 2. 创建 job_worker 关联
-        job_worker_data = {
-            "job_id": job_id,
-            "bid_id": bid.bid_id,
-            "worker_id": agent_id,
-            "status": "PENDING",
-        }
-        job_worker_dal.create_job_worker(db, job_worker_data)
+        # 订阅这个 bid 的消息
+        await manager.subscribe_bid(agent_id, bid["bid_id"])
 
-        # 3. 订阅这个 bid 的消息
-        await manager.subscribe_bid(agent_id, bid.bid_id)
-
-        # 4. 返回成功结果
+        # 返回成功结果
         await websocket.send_json({
             "type": "grab_result",
             "data": {
                 "success": True,
-                "bid_id": bid.bid_id,
+                "bid_id": bid["bid_id"],
                 "job_id": job_id,
                 "message": "抢单成功，等待派单"
             }
         })
 
-        # 5. 通知雇主有新的抢单
+        # 通知雇主有新的抢单
         job = job_dal.get_job(db, job_id)
         if job:
             await manager.send_to_agent(job.employer_id, {
                 "type": "new_bid",
                 "data": {
                     "job_id": job_id,
-                    "bid_id": bid.bid_id,
+                    "bid_id": bid["bid_id"],
                     "worker_id": agent_id
                 }
             })
 
-    except ValueError as e:
+    except BidValidationError as e:
         # 抢单失败 (如任务不存在、已达上限等)
         await websocket.send_json({
             "type": "grab_result",

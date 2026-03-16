@@ -5,6 +5,10 @@
 - 抢单处理
 - 派单/锁单
 - 任务状态流转
+
+注意：本文件包含两个版本：
+1. 同步版本 (JobService) - 供 HTTP API 和 MCP Server 使用
+2. 异步版本 (AsyncJobService) - 供 WebSocket 和后台任务使用
 """
 
 import json
@@ -13,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from redis import asyncio as aioredis
 
-from ..db.jobs import get_job, create_job
+from ..db.jobs import get_job, create_job, update_job, list_jobs, get_job_dict, delete_job, count_job_bids
 from ..db.bids import get_bid, get_bids_for_job, create_bid
 from ..db.job_workers import (
     create_job_worker,
@@ -26,10 +30,228 @@ from ..services.state_machine import OrderStateMachine, OrderState, StateTransit
 from ..constants import OrderStatus, JobWorkerStatus, PaymentStatus
 from ..models.db_models import Job
 from ..utils.notification import notify_worker_dispatch
+from ..auth.permissions import PermissionDeniedError
+
+
+# ============================================================
+# 同步版本 - 供 HTTP API 和 MCP Server 使用
+# ============================================================
+
+class JobValidationError(Exception):
+    """Job 业务验证异常"""
+    pass
+
+
+# 定义合法的状态转换
+VALID_STATUS_TRANSITIONS = {
+    "OPEN": ["ACTIVE", "REVIEW", "CLOSED"],
+    "ACTIVE": ["REVIEW", "CLOSED"],
+    "REVIEW": ["ACTIVE", "CLOSED"],
+    "CLOSED": [],  # CLOSED 是终态
+}
 
 
 class JobService:
-    """任务服务"""
+    """Job 业务服务类（同步版本）
+
+    封装所有 Job 相关的业务逻辑，提供统一的接口供 HTTP API、MCP Server 调用
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_job(
+        self,
+        employer_id: str,
+        title: str,
+        description: str,
+        required_tags: List[str],
+        budget_min: Optional[int] = None,
+        budget_max: Optional[int] = None,
+        bid_limit: int = 5,
+        deadline: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """创建新任务
+
+        业务规则:
+        1. 雇主必须存在
+        2. 预算范围必须合理（min <= max）
+        3. bid_limit 必须大于 0
+
+        Returns:
+            创建的任务信息
+
+        Raises:
+            JobValidationError: 当违反业务规则时
+        """
+        # 1. 验证雇主存在
+        employer = get_agent(self.db, employer_id)
+        if not employer:
+            raise JobValidationError(f"Employer {employer_id} not found")
+
+        # 2. 验证预算范围
+        if budget_min is not None and budget_max is not None:
+            if budget_min > budget_max:
+                raise JobValidationError(
+                    f"budget_min ({budget_min}) cannot be greater than "
+                    f"budget_max ({budget_max})"
+                )
+
+        # 3. 验证竞标上限
+        if bid_limit <= 0:
+            raise JobValidationError("bid_limit must be greater than 0")
+        if bid_limit > 100:
+            raise JobValidationError("bid_limit cannot exceed 100")
+
+        # 4. 创建任务
+        job_data = {
+            "employer_id": employer_id,
+            "title": title,
+            "description": description,
+            "required_tags": required_tags,
+            "budget_min": budget_min,
+            "budget_max": budget_max,
+            "bid_limit": bid_limit,
+            "deadline": deadline,
+        }
+
+        job = create_job(self.db, job_data)
+        if not job:
+            raise JobValidationError("Failed to create job")
+
+        result = job.to_dict()
+        result["bid_count"] = 0
+        return result
+
+    def get_job(self, job_id: str) -> Dict[str, Any]:
+        """获取任务详情
+
+        Returns:
+            任务信息字典
+
+        Raises:
+            JobValidationError: 当任务不存在时
+        """
+        job = get_job(self.db, job_id)
+        if not job:
+            raise JobValidationError(f"Job {job_id} not found")
+
+        result = job.to_dict()
+        result["bid_count"] = count_job_bids(self.db, job_id)
+        return result
+
+    def update_job_status(
+        self,
+        job_id: str,
+        new_status: str,
+        operator_id: str
+    ) -> Dict[str, Any]:
+        """更新任务状态
+
+        业务规则:
+        1. 只有任务创建者可以更新状态
+        2. 状态转换必须符合规则
+
+        Raises:
+            JobValidationError: 当状态转换不合法时
+            PermissionDeniedError: 当无权操作时
+        """
+        # 1. 验证任务存在
+        job = get_job(self.db, job_id)
+        if not job:
+            raise JobValidationError(f"Job {job_id} not found")
+
+        # 2. 验证操作权限
+        if job.employer_id != operator_id:
+            raise PermissionDeniedError(
+                action="update_job_status",
+                resource_type="job",
+                resource_id=job_id,
+                agent_id=operator_id
+            )
+
+        # 3. 验证状态转换
+        current_status = job.status
+        if new_status not in VALID_STATUS_TRANSITIONS.get(current_status, []):
+            raise JobValidationError(
+                f"Cannot transition job from {current_status} to {new_status}"
+            )
+
+        # 4. 更新状态
+        updated_job = update_job(self.db, job_id, {"status": new_status})
+        if not updated_job:
+            raise JobValidationError("Failed to update job status")
+
+        return updated_job.to_dict()
+
+    def delete_job(
+        self,
+        job_id: str,
+        operator_id: str
+    ) -> bool:
+        """删除任务（软删除）
+
+        业务规则:
+        1. 只有任务创建者可以删除
+        2. 只有 OPEN、CLOSED、REJECTED 状态的任务可以删除
+
+        Raises:
+            JobValidationError: 当任务不可删除时
+            PermissionDeniedError: 当无权操作时
+        """
+        job = get_job(self.db, job_id)
+        if not job:
+            raise JobValidationError(f"Job {job_id} not found")
+
+        # 验证操作权限
+        if job.employer_id != operator_id:
+            raise PermissionDeniedError(
+                action="delete_job",
+                resource_type="job",
+                resource_id=job_id,
+                agent_id=operator_id
+            )
+
+        # 验证可删除状态
+        deletable_statuses = ["OPEN", "CLOSED", "REJECTED"]
+        if job.status not in deletable_statuses:
+            raise JobValidationError(
+                f"Cannot delete job with status {job.status}. "
+                f"Only {deletable_statuses} jobs can be deleted."
+            )
+
+        # 执行删除
+        success = delete_job(self.db, job_id, employer_id=operator_id)
+        if not success:
+            raise JobValidationError("Failed to delete job")
+
+        return True
+
+    def list_jobs(
+        self,
+        status: Optional[str] = None,
+        tag: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20
+    ) -> Dict[str, Any]:
+        """查询任务列表"""
+        return list_jobs(
+            self.db,
+            status=status,
+            tag=tag,
+            page=page,
+            limit=limit
+        )
+
+
+# ============================================================
+# 异步版本 - 供 WebSocket 和后台任务使用（原有代码）
+# 重命名为 AsyncJobService 以避免与同步版本冲突
+# ============================================================
+
+
+class AsyncJobService:
+    """任务服务（异步版本，带 Redis 状态机）"""
 
     def __init__(
         self,
@@ -346,6 +568,11 @@ class JobService:
 
 # ========== 便捷函数 ==========
 
-def create_job_service(db: Session, redis: aioredis.Redis) -> JobService:
-    """创建 JobService 实例"""
-    return JobService(db, redis)
+def create_job_service(db: Session, redis: aioredis.Redis) -> AsyncJobService:
+    """创建 AsyncJobService 实例（异步版本）"""
+    return AsyncJobService(db, redis)
+
+
+def create_sync_job_service(db: Session) -> JobService:
+    """创建 JobService 实例（同步版本）"""
+    return JobService(db)
