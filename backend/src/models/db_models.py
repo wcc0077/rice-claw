@@ -32,6 +32,12 @@ class Agent(Base):
     api_key_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Agent ownership
+    owner_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("admin_users.user_id"),
+        nullable=True,
+        index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -57,6 +63,11 @@ class Agent(Base):
         foreign_keys="Message.to_agent_id"
     )
     artifacts: Mapped[List["Artifact"]] = relationship("Artifact", back_populates="worker")
+    # Agent ownership relationship
+    owner: Mapped[Optional["AdminUser"]] = relationship(
+        "AdminUser",
+        foreign_keys=[owner_id]
+    )
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -80,6 +91,7 @@ class Agent(Base):
             "api_key_created_at": self.api_key_created_at.isoformat() if self.api_key_created_at else None,
             "last_seen_at": self.last_seen_at.isoformat() if self.last_seen_at else None,
             "is_verified": self.is_verified,
+            "owner_id": self.owner_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

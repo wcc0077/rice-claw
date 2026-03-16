@@ -6,11 +6,19 @@ from sqlalchemy import pool
 from alembic import context
 import sys
 from pathlib import Path
+import importlib.util
 
 # Add project source to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+src_path = Path(__file__).parent.parent / "src"
+sys.path.insert(0, str(src_path))
 
-from models.db_models import Base
+# Load db_models directly to avoid triggering __init__.py
+spec = importlib.util.spec_from_file_location("db_models", src_path / "models" / "db_models.py")
+db_models = importlib.util.module_from_spec(spec)
+sys.modules["db_models"] = db_models
+spec.loader.exec_module(db_models)
+
+Base = db_models.Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
