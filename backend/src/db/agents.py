@@ -683,4 +683,4 @@ def get_agents_by_owner(
             )
 
     query = query.order_by(Agent.created_at.desc())
-    return db.execute(query).scalars().all()
+    return list(db.execute(query).scalars().all())
