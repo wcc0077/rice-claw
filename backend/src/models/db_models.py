@@ -86,9 +86,10 @@ class Agent(Base):
 
 
 class Job(Base):
-    """任务模型"""
+    """任务模型 - 撮合平台 (扩展交易字段)"""
     __tablename__ = "jobs"
 
+    # ========== 原有字段 (保持不变) ==========
     job_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     employer_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False)
     title: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -100,7 +101,7 @@ class Job(Base):
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     bid_limit: Mapped[int] = mapped_column(Integer, default=5)
     priority: Mapped[str] = mapped_column(String(16), default="normal")
-    status: Mapped[str] = mapped_column(String(16), default="OPEN")  # 'OPEN' | 'ACTIVE' | 'REVIEW' | 'CLOSED'
+    status: Mapped[str] = mapped_column(String(32), default="OPEN")  # 'OPEN' | 'BIDDING' | 'LOCKED' | 'WORKING' | 'SELECTED' | 'COMPLETED' | 'CANCELLED'
     selected_worker_ids: Mapped[str] = mapped_column(Text, default="")  # 逗号分隔
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(
@@ -109,6 +110,31 @@ class Job(Base):
         onupdate=func.current_timestamp()
     )
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # ========== 新增交易字段 (撮合需求) ==========
+    # 金额相关 (单位：分)
+    reward_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 确切酬金
+    deposit_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 订金 (reward × 20%)
+    deposit_paid: Mapped[bool] = mapped_column(Boolean, default=False)  # 订金支付状态
+    platform_fee: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 平台抽成 (reward × 8%)
+
+    # 锁单相关
+    locked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # 锁单时间
+    lock_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # 最晚交付时间
+
+    # 中标者
+    winner_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        ForeignKey("agents.agent_id"),
+        nullable=True
+    )  # 中标者 agent_id
+
+    # 支付状态
+    final_payment_status: Mapped[str] = mapped_column(
+        String(32),
+        default="PENDING"
+    )  # PENDING/PAID/REFUNDED
+    final_payment_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 尾款金额
 
     # 关系
     employer: Mapped["Agent"] = relationship(
@@ -119,6 +145,16 @@ class Job(Base):
     bids: Mapped[List["Bid"]] = relationship("Bid", back_populates="job")
     messages: Mapped[List["Message"]] = relationship("Message", back_populates="job")
     artifacts: Mapped[List["Artifact"]] = relationship("Artifact", back_populates="job")
+    workers: Mapped[List["JobWorker"]] = relationship(
+        "JobWorker",
+        back_populates="job",
+        cascade="all, delete-orphan"
+    )
+    payments: Mapped[List["Payment"]] = relationship(
+        "Payment",
+        back_populates="job",
+        cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -139,6 +175,16 @@ class Job(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            # 撮合交易字段
+            "reward_amount": self.reward_amount,
+            "deposit_amount": self.deposit_amount,
+            "deposit_paid": self.deposit_paid,
+            "platform_fee": self.platform_fee,
+            "locked_at": self.locked_at.isoformat() if self.locked_at else None,
+            "lock_deadline": self.lock_deadline.isoformat() if self.lock_deadline else None,
+            "winner_id": self.winner_id,
+            "final_payment_status": self.final_payment_status,
+            "final_payment_amount": self.final_payment_amount,
         }
 
 
@@ -432,4 +478,240 @@ class SmsRateLimit(Base):
             "send_count": self.send_count,
             "window_start": self.window_start.isoformat() if self.window_start else None,
             "last_sent_at": self.last_sent_at.isoformat() if self.last_sent_at else None,
+        }
+
+
+# =============================================================================
+# 撮合平台新增模型
+# =============================================================================
+
+
+class JobWorker(Base):
+    """任务 - 工人关联表 (原 order_items)
+    一个任务最多 3 个接单方，独立并行工作
+    """
+    __tablename__ = "job_workers"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.job_id"), nullable=False, index=True)
+    bid_id: Mapped[str] = mapped_column(ForeignKey("bids.bid_id"), nullable=False)  # 抢单来源
+    worker_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False, index=True)
+
+    # 状态：PENDING/CONFIRMED/WORKING/DELIVERED/WINNER/RUNNER_UP/CANCELLED
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+
+    # 确认状态
+    is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # 交付状态
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # 中标结果
+    is_winner: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 补贴 (单位：分)
+    subsidy_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # 信誉扣分 (取消时)
+    credit_penalty: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=func.current_timestamp(),
+        onupdate=func.current_timestamp()
+    )
+
+    # 关系
+    job: Mapped["Job"] = relationship("Job", back_populates="workers")
+    bid: Mapped["Bid"] = relationship("Bid")
+    worker: Mapped["Agent"] = relationship("Agent")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "job_id": self.job_id,
+            "bid_id": self.bid_id,
+            "worker_id": self.worker_id,
+            "status": self.status,
+            "is_confirmed": self.is_confirmed,
+            "confirmed_at": self.confirmed_at.isoformat() if self.confirmed_at else None,
+            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
+            "is_winner": self.is_winner,
+            "subsidy_amount": self.subsidy_amount,
+            "credit_penalty": self.credit_penalty,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ArtifactVersion(Base):
+    """交付物版本管理表
+    支持多版本迭代，预览图带水印
+    """
+    __tablename__ = "artifact_versions"
+
+    version_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(ForeignKey("artifacts.artifact_id"), nullable=False, index=True)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1, 2, 3...
+
+    # 文件 URL
+    file_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    preview_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)  # 带水印预览
+
+    # 水印状态
+    is_watermarked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 上传者
+    worker_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False, index=True)
+
+    # 是否最终版本
+    is_final: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 版本说明
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+
+    # 关系
+    artifact: Mapped["Artifact"] = relationship("Artifact", back_populates="versions")
+    worker: Mapped["Agent"] = relationship("Agent")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "version_id": self.version_id,
+            "artifact_id": self.artifact_id,
+            "version_number": self.version_number,
+            "file_url": self.file_url,
+            "preview_url": self.preview_url,
+            "is_watermarked": self.is_watermarked,
+            "worker_id": self.worker_id,
+            "is_final": self.is_final,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# 更新 Artifact 模型，添加 versions 关系
+Artifact.versions = relationship(
+    "ArtifactVersion",
+    back_populates="artifact",
+    cascade="all, delete-orphan",
+    order_by="ArtifactVersion.version_number"
+)
+
+
+class Payment(Base):
+    """支付流水表
+    记录所有交易：订金、尾款、补贴、罚金、平台抽成
+    """
+    __tablename__ = "payments"
+
+    payment_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.job_id"), nullable=False, index=True)
+
+    # 交易双方
+    payer_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False, index=True)
+    payee_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False)
+
+    # 金额 (单位：分)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # 支付类型
+    # DEPOSIT(订金) / REWARD(酬金) / SUBSIDY(补贴) / PENALTY(罚金) / PLATFORM_FEE(平台抽成) / REFUND(退款)
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # 支付状态
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")  # PENDING/SUCCESS/FAILED/REFUNDED
+
+    # 第三方交易 ID
+    transaction_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    # 描述
+    description: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+
+    # 关联的 job_worker (可选，用于补贴)
+    job_worker_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("job_workers.id"),
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    settled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # 结算时间
+
+    # 关系
+    job: Mapped["Job"] = relationship("Job", back_populates="payments")
+    payer: Mapped["Agent"] = relationship("Agent", foreign_keys=[payer_id])
+    payee: Mapped["Agent"] = relationship("Agent", foreign_keys=[payee_id])
+    job_worker: Mapped["JobWorker"] = relationship("JobWorker")
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "payment_id": self.payment_id,
+            "job_id": self.job_id,
+            "payer_id": self.payer_id,
+            "payee_id": self.payee_id,
+            "amount": self.amount,
+            "type": self.type,
+            "status": self.status,
+            "transaction_id": self.transaction_id,
+            "description": self.description,
+            "job_worker_id": self.job_worker_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "settled_at": self.settled_at.isoformat() if self.settled_at else None,
+        }
+
+
+class WsConnection(Base):
+    """WebSocket 连接历史表 (用于审计和离线分析)"""
+    __tablename__ = "ws_connections"
+
+    connection_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False, index=True)
+    server_node: Mapped[str] = mapped_column(String(64), nullable=False)  # 服务器节点名
+
+    # 连接时间
+    connected_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    disconnected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    disconnect_reason: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "connection_id": self.connection_id,
+            "agent_id": self.agent_id,
+            "server_node": self.server_node,
+            "connected_at": self.connected_at.isoformat() if self.connected_at else None,
+            "disconnected_at": self.disconnected_at.isoformat() if self.disconnected_at else None,
+            "disconnect_reason": self.disconnect_reason,
+        }
+
+
+class MessageDelivery(Base):
+    """消息送达状态表"""
+    __tablename__ = "message_delivery"
+
+    message_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    recipient_id: Mapped[str] = mapped_column(ForeignKey("agents.agent_id"), nullable=False, index=True)
+
+    # 送达/阅读状态
+    delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return {
+            "message_id": self.message_id,
+            "recipient_id": self.recipient_id,
+            "delivered": self.delivered,
+            "read": self.read,
+            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
+            "read_at": self.read_at.isoformat() if self.read_at else None,
         }

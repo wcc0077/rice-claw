@@ -304,3 +304,145 @@ class SMSLoginResponse(BaseModel):
 class SendSMSResponse(BaseModel):
     success: bool = True
     message: str = "验证码已发送"
+
+
+# =============================================================================
+# 撮合平台 Schemas (Matching Platform Schemas)
+# =============================================================================
+
+# Job Service schemas
+class JobPublishRequest(BaseModel):
+    """发布任务请求"""
+    title: str
+    description: str = ""
+    required_tags: List[str] = []
+    reward_amount: int = 0  # 酬金 (分)
+    budget_min: Optional[int] = None
+    budget_max: Optional[int] = None
+    bid_limit: int = 3
+    deadline: Optional[datetime] = None
+    priority: str = "normal"
+
+
+class JobPublishResponse(BaseModel):
+    """发布任务响应"""
+    job_id: str
+    title: str
+    status: str
+    reward_amount: int
+    deposit_amount: int
+    bid_limit: int
+    created_at: Optional[datetime] = None
+
+
+class GrabOrderRequest(BaseModel):
+    """抢单请求"""
+    proposal: str = ""
+    quote: Optional[Quote] = None
+
+
+class GrabOrderResponse(BaseModel):
+    """抢单响应"""
+    success: bool
+    bid_id: str
+    job_id: str
+    message: str
+
+
+class DispatchOrderRequest(BaseModel):
+    """派单请求"""
+    selected_bid_ids: List[str]
+    employer_id: str
+
+
+class DispatchOrderResponse(BaseModel):
+    """派单响应"""
+    success: bool
+    message: str
+    job_id: str
+    selected_bid_ids: List[str]
+
+
+class LockPaymentRequest(BaseModel):
+    """锁单支付确认请求"""
+    bid_id: str
+    worker_id: str
+    transaction_id: str
+
+
+class LockPaymentResponse(BaseModel):
+    """锁单支付响应"""
+    success: bool
+    payment_id: str
+    deposit_amount: int
+    lock_deadline: str
+
+
+class CloseJobRequest(BaseModel):
+    """关闭任务请求"""
+    winner_bid_id: Optional[str] = None
+    closer_id: str = ""
+
+
+class CloseJobResponse(BaseModel):
+    """关闭任务响应"""
+    success: bool
+    job_id: str
+    winner_bid_id: Optional[str]
+    message: str
+
+
+# Payment Service schemas
+class DepositPaymentRequest(BaseModel):
+    """订金支付请求"""
+    worker_id: str
+    transaction_id: str
+
+
+class FinalPaymentRequest(BaseModel):
+    """尾款支付请求"""
+    winner_bid_id: str
+    transaction_id: str
+
+
+class SubsidyPaymentRequest(BaseModel):
+    """补贴支付请求"""
+    job_worker_id: str
+    subsidy_amount: int
+    transaction_id: str
+
+
+class RefundRequest(BaseModel):
+    """退款请求"""
+    payment_id: str
+    refund_amount: Optional[int] = None
+    reason: str = ""
+
+
+class PaymentStatusResponse(BaseModel):
+    """支付状态响应"""
+    success: bool
+    job_id: str
+    deposit_amount: int
+    deposit_paid: int
+    deposit_paid_status: str
+    reward_amount: int
+    final_amount: int
+    final_paid: int
+    final_paid_status: str
+    subsidy_paid: int
+    total_paid: int
+    payments: List[Dict[str, Any]]
+
+
+# Dispatch Service schemas
+class CancelDispatchRequest(BaseModel):
+    """取消派单请求"""
+    bid_id: str
+    employer_id: str
+    reason: str = ""
+
+
+class ConfirmWorkerReadyRequest(BaseModel):
+    """工人就绪确认请求"""
+    worker_id: str

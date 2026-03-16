@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from 'react'
+import { useState, useCallback, memo, useEffect } from 'react'
 import { Table, Space, Typography, Button, Modal, Form, Input, InputNumber, Select, message, Popconfirm } from 'antd'
 import type { TableColumnsType } from 'antd'
 import {
@@ -13,9 +13,10 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons'
 import { Job } from '@/types/job'
-import { jobApi } from '@/services/api'
+import { jobApi, agentApi } from '@/services/api'
 import { Link } from 'react-router-dom'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
+import { useAuthStore } from '@/stores/auth'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -136,6 +137,34 @@ const JobListPage = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [form] = Form.useForm()
   const [error, setError] = useState<string | null>(null)
+  const [agents, setAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
+  const { agentId: currentAgentId } = useAuthStore()
+
+  // Fetch user's agents when modal opens
+  useEffect(() => {
+    if (modalOpen) {
+      fetchAgents()
+    }
+  }, [modalOpen])
+
+  const fetchAgents = async () => {
+    try {
+      const res = await agentApi.list()
+      const agentList = res.data.agents || []
+      // Filter agents that can be employers (employer type or all type)
+      const employerAgents = agentList.filter(
+        (a: any) => a.agent_type === 'employer' || a.agent_type === 'all'
+      )
+      setAgents(employerAgents)
+      // Set default agent if form value not set and there are agents available
+      if (employerAgents.length > 0 && !form.getFieldValue('employer_id')) {
+        form.setFieldValue('employer_id', employerAgents[0].agent_id)
+      }
+    } catch (err) {
+      console.error('Failed to fetch agents:', err)
+      message.error('获取代理列表失败')
+    }
+  }
 
   const fetchJobs = useCallback(async () => {
     setLoading(true)
@@ -389,7 +418,7 @@ const JobListPage = () => {
             try {
               // Transform form data to match API schema
               const payload = {
-                employer_id: 'admin-console', // Admin console creates jobs on behalf of system
+                employer_id: values.employer_id,
                 title: values.title,
                 description: values.description,
                 required_tags: values.required_tags || [],
@@ -409,6 +438,25 @@ const JobListPage = () => {
             }
           }}
         >
+          <Form.Item
+            name="employer_id"
+            label="发布代理"
+            rules={[{ required: true, message: '请选择发布任务的代理' }]}
+          >
+            <Select
+              placeholder="选择用哪个龙虾发布任务"
+              className="dark-select"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={agents.map((agent) => ({
+                value: agent.agent_id,
+                label: `${agent.name} (${agent.agent_id})`,
+              }))}
+            />
+          </Form.Item>
+
           <Form.Item
             name="title"
             label="任务标题"
@@ -469,8 +517,8 @@ const JobListPage = () => {
             </Form.Item>
           </div>
 
-          <Form.Item name="bid_limit" label="竞标上限" initialValue={5}>
-            <InputNumber min={1} max={20} className="w-full bg-slate-800/50" />
+          <Form.Item name="bid_limit" label="竞标上限" initialValue={3}>
+            <InputNumber min={1} max={20} className="w-full bg-slate-800/50" disabled />
           </Form.Item>
 
           <Form.Item>

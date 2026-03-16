@@ -1,201 +1,225 @@
-# Session Progress Log
+# Progress Log - 撮合平台
 
-## Session: 2026-03-16 (Observability Enhancement)
+## Session: 2026-03-16
 
-### Implemented Features
+### Phase 1: 需求分析与架构设计
+- **Status:** complete
+- **Started:** 2026-03-16 11:40
+- **Completed:** 2026-03-16 14:00
+- Actions taken:
+  - 阅读需求文档 (撮合.md)
+  - 分析核心业务流程和规则
+  - 分析现有系统数据模型
+  - 设计系统架构 (Redis + WebSocket)
+  - 设计状态机和 API 接口
+  - 修订：WS 细化到 bid 层面
+  - 修订：job/order 融合方案
 
-#### Phase 4.8: Observability Enhancement (可观测性增强) ✅
+### Phase 2: 数据模型设计
+- **Status:** complete
+- **Started:** 2026-03-16 14:00
+- **Completed:** 2026-03-16 15:30
+- Actions taken:
+  - 扩展 Job 模型 (9 个新字段)
+    - reward_amount, deposit_amount, deposit_paid, platform_fee
+    - locked_at, lock_deadline, winner_id
+    - final_payment_status, final_payment_amount
+  - 创建 JobWorker 模型 (任务 - 工人关联)
+  - 创建 ArtifactVersion 模型 (交付物版本)
+  - 创建 Payment 模型 (支付流水)
+  - 创建 WsConnection 模型 (WebSocket 连接历史)
+  - 创建 MessageDelivery 模型 (消息送达状态)
+  - 编写数据库迁移脚本 (add_matching_platform.py)
+  - **运行迁移脚本 - 成功**
+    - 新增 5 张表：job_workers, artifact_versions, payments, ws_connections, message_delivery
+    - 扩展 jobs 表 (9 个字段)
+    - 扩展 reputation_logs 表 (1 个字段)
 
-**Backend Changes:**
-- Created `backend/src/utils/logger.py` - Structured logging with loguru
-  - Request ID tracing
-  - Slow query logging (>100ms threshold)
-  - JSON format output for machine parsing
-  - Auto rotation (10MB/file), async writing
-  - Timer context manager for operation timing
+### Phase 2.5: Redis 与 WebSocket 基础设施
+- **Status:** complete
+- **Started:** 2026-03-16 16:00
+- **Completed:** 2026-03-16 17:30
+- Actions taken:
+  - 创建 websocket 目录结构
+  - 实现 ConnectionManager (websocket/manager.py)
+    - agent_id → WebSocket 连接管理
+    - agent_id → Set<bid_id> 订阅管理
+    - bid_id → context 上下文
+    - 离线消息存储 (Redis Stream)
+  - 实现 WebSocket 路由 (websocket/routes.py)
+    - 支持消息类型：grab_order, chat, deliver, ping, subscribe_bid
+    - Agent API Token 认证
+    - bid 级消息路由
+  - 实现状态机 Lua 脚本 (services/state_machine.lua)
+    - 原子状态流转
+    - 状态变更通知 (Redis Pub/Sub)
+  - 实现 OrderStateMachine 类 (services/state_machine.py)
+    - 状态流转验证
+    - 操作历史记录
+    - 便捷函数
+  - 实现消息服务 (services/message_service.py)
+    - 离线消息存储
+    - 消息推送
+    - WS 连接记录
+    - bid 订阅管理
+  - 实现 Redis Pub/Sub 订阅器 (services/pubsub_subscriber.py)
+    - 监听订单状态变更
+    - 监听 bid 相关消息
+    - 推送给订阅的 agent
+  - 修复 routes.py 导入和依赖问题
+  - 添加 WebSocket 路由到 main.py
 
-- Created `backend/src/utils/metrics.py` - Metrics collection module
-  - API latency metrics (avg, p50, p95, p99)
-  - QPS per endpoint
-  - Error rate per endpoint
-  - Business metrics caching (active agents, job stats, bid stats)
+### Phase 3: 领域模型与服务层设计
+- **Status:** complete
+- **Started:** 2026-03-16 17:30
+- **Completed:** 2026-03-16 18:30
+- Actions taken:
+  - 实现 JobService (services/job_service.py)
+    - create_and_publish_job: 创建并发布任务，初始化 Redis 状态机
+    - grab_order: 抢单功能，检查任务状态、创建 bid、创建 job_worker 关联
+    - dispatch_order: 派单/锁单，验证选中 bid 数量，更新状态机
+    - confirm_lock_payment: 确认订金支付 (20%)
+    - close_job: 关闭任务，支持选中标的
+  - 实现 PaymentService (services/payment_service.py)
+    - process_deposit_payment: 处理订金支付
+    - process_final_payment: 处理尾款支付
+    - process_subsidy_payment: 处理补贴支付
+    - process_refund: 处理退款
+    - get_payment_status: 获取任务支付状态
+  - 实现 DispatchService (services/dispatch_service.py)
+    - dispatch_order: 派单/锁单
+    - cancel_dispatch: 取消派单
+    - confirm_worker_ready: 确认工人已就绪
+  - 修复所有类型错误和导入问题
+  - 更新 services/__init__.py 导出所有新服务
 
-- Created `backend/src/middleware/observability.py` - Observability middleware
-  - Automatic Request ID generation
-  - Latency recording for all requests
-  - Slow request logging (>1000ms)
-  - Periodic business metrics update (60s interval)
+### Phase 4: API 接口实现
+- **Status:** complete
+- **Started:** 2026-03-16 18:30
+- **Completed:** 2026-03-16 19:30
+- Actions taken:
+  - 创建 `backend/src/api/matching.py` - 撮合平台 API 路由
+    - `POST /jobs/publish` - 发布任务
+    - `POST /jobs/{job_id}/grab` - 抢单
+    - `POST /jobs/{job_id}/dispatch` - 派单/锁单
+    - `POST /jobs/{job_id}/lock-payment` - 确认锁单支付
+    - `POST /jobs/{job_id}/close` - 关闭任务
+    - `POST /payments/deposit` - 处理订金支付
+    - `POST /payments/final` - 处理尾款支付
+    - `GET /payments/{job_id}/status` - 获取支付状态
+    - `POST /payments/refund` - 处理退款
+    - `POST /dispatch/cancel` - 取消派单
+    - `POST /dispatch/worker-ready` - 确认工人就绪
+  - 扩展 `backend/src/models/schemas.py` - 添加撮合平台 Schemas (约 150 行)
+    - JobPublishRequest/Response, GrabOrderRequest/Response
+    - DispatchOrderRequest/Response, LockPaymentRequest/Response
+    - CloseJobRequest/Response, DepositPaymentRequest, FinalPaymentRequest
+    - PaymentStatusResponse, RefundRequest, CancelDispatchRequest, ConfirmWorkerReadyRequest
+  - 注册 matching 路由到 `backend/src/api/__init__.py`
+  - 修复依赖注入问题 (移除未使用的 db 参数)
+  - 修复 websocket/manager.py Python 语法错误 (?. → 可选链)
+  - 修复 websocket/manager.py 导入问题
+  - 添加 redis 依赖到 pyproject.toml
+  - **验证 API 模块导入成功**
+  - **验证 FastAPI 应用启动成功 (67 个路由)**
+  - **Code Review 修复 (/simplify):**
+    - 创建共享通知工具 `backend/src/utils/notification.py`
+    - 移除 `JobService._notify_worker_dispatch` 重复方法
+    - 移除 `DispatchService._notify_worker_dispatch` 重复方法
+    - 移除 `JobService.dispatch_order` 重复方法 (保留在 `DispatchService`)
+    - 更新 API 使用 `DispatchService.dispatch_order`
+    - 创建共享 Redis 依赖注入器 `get_redis()`
+    - 重构三个服务依赖注入器使用共享 Redis
+    - 清理未使用导入 (`sqlalchemy_update`, `update_job`, `confirm_job_worker`)
+    - 添加状态常量到 `constants.py` (`PaymentStatus`, `JobWorkerStatus`)
+    - 更新 `job_service.py` 使用 `OrderState` 常量
+    - 更新 `dispatch_service.py` 使用 `OrderState` 常量
+    - 更新 `payment_service.py` 使用 `OrderState`, `PaymentStatus`, `JobWorkerStatus` 常量
 
-- Created `backend/src/api/observability.py` - Observability API endpoints
-  - `GET /api/v1/observability/health` - Enhanced health check
-  - `GET /api/v1/observability/metrics` - Full system metrics
-  - `GET /api/v1/observability/metrics/latency` - Latency details
-  - `GET /api/v1/observability/metrics/business` - Business metrics
+### Phase 5: Schema 验证与类型定义
+- **Status:** pending
 
-- Updated `backend/src/main.py` - Registered middleware and logging
-- Updated `backend/src/api/__init__.py` - Added observability router
-- Added dependency: `loguru>=0.7.0`
+### Phase 6: 测试与验证
+- **Status:** pending
 
-**Frontend Changes:**
-- Created `frontend/src/pages/SystemMonitor.tsx` - System monitoring dashboard
-  - Health status display (healthy/degraded/unhealthy)
-  - Core metrics cards (active agents, requests, latency)
-  - Latency details table
-  - Job/Bid status distribution
-  - Auto-refresh every 30 seconds
+## Files Created/Modified
 
-- Created `frontend/src/services/observabilityService.ts` - API service
-- Updated `frontend/src/App.tsx` - Added `/dashboard/monitoring` route
-- Updated `frontend/src/components/Layout/Sidebar.tsx` - Added "系统监控" menu
-- Updated `frontend/src/components/Layout/MobileNav.tsx` - Added mobile nav item
+| File | Action | Description |
+|------|--------|-------------|
+| `backend/src/models/db_models.py` | Modified | 扩展 Job, 新增 6 个模型 |
+| `backend/src/migrations/add_matching_platform.py` | Created | 数据库迁移脚本 |
+| `backend/src/websocket/__init__.py` | Created | WebSocket 模块初始化 |
+| `backend/src/websocket/manager.py` | Created + Fixed | ConnectionManager 类，修复 Python 语法错误 |
+| `backend/src/websocket/routes.py` | Created | WebSocket 路由处理 |
+| `backend/src/services/state_machine.lua` | Created | Redis Lua 脚本 |
+| `backend/src/services/state_machine.py` | Created | OrderStateMachine 类 |
+| `backend/src/services/message_service.py` | Created | MessageService 类 |
+| `backend/src/services/pubsub_subscriber.py` | Created | RedisPubSubSubscriber 类 |
+| `backend/src/services/job_service.py` | Created | JobService 类 (任务服务) |
+| `backend/src/services/payment_service.py` | Created | PaymentService 类 (支付服务) |
+| `backend/src/services/dispatch_service.py` | Created | DispatchService 类 (派单服务) |
+| `backend/src/services/__init__.py` | Modified | 服务导出 |
+| `backend/src/main.py` | Modified | 添加 WebSocket 路由 |
+| `backend/src/api/matching.py` | Created | 撮合平台 API 路由 (12 个端点) |
+| `backend/src/api/__init__.py` | Modified | 注册 matching 路由 |
+| `backend/src/models/schemas.py` | Modified | 添加撮合平台 Schemas (约 150 行) |
+| `backend/pyproject.toml` | Modified | 添加 redis 依赖 |
+| `backend/src/websocket/manager.py` | Modified | 修复导入路径 |
+| `backend/src/constants.py` | Modified | 添加 JobWorkerStatus, PaymentStatus |
+| `backend/src/utils/notification.py` | Created | 共享通知工具 |
+| `backend/src/api/matching.py` | Modified | 使用共享 Redis 依赖注入器 |
+| `backend/src/services/job_service.py` | Modified | 移除重复方法，使用常量 |
+| `backend/src/services/dispatch_service.py` | Modified | 移除重复方法，使用常量 |
+| `backend/src/services/payment_service.py` | Modified | 使用常量 |
+| `findings.md` | Modified | 架构设计文档 |
+| `task_plan.md` | Modified | 任务计划 |
+| `progress.md` | Modified | 进度日志 |
+| `frontend/src/pages/Jobs/JobListPage.tsx` | Modified | 添加 agent 选择器功能 |
 
-**Documentation:**
-- Created `OBSERVABILITY.md` - Complete usage guide
+## Database Migration Result
 
----
+```
+Tables created:
+  - job_workers
+  - artifact_versions
+  - payments
+  - ws_connections
+  - message_delivery
 
-## Session: 2026-03-14 (Order Management Page)
+Tables extended:
+  - jobs (9 new fields)
+  - reputation_logs (1 new field)
+```
 
-### Implemented Features
+## Current Phase
 
-#### Phase 4.6: Order Management (接单管理) ✅
-- **Backend Changes:**
-  - Extended `Bid.status` to support 7 states: BIDDING, SELECTED, NOT_SELECTED, IN_PROGRESS, COMPLETED, DELIVERED, CANCELLED
-  - Created `/api/v1/my-orders` endpoint for workers to view their orders
-  - Added `PATCH /api/v1/my-orders/{bid_id}/status` for status updates
-  - Added `get_worker_orders()` and `get_order_detail()` functions in bid DAL
-  - Updated bid accept/reject to mark selected/not_selected appropriately
+**Phase 4: Complete** - API 接口实现完成
 
-- **Frontend Changes:**
-  - Created `OrderListPage.tsx` with status tabs (全部/竞标中/中标/实施中/已完成)
-  - Created `OrderCard` component with action buttons
-  - Added `orderApi` service functions
-  - Added `/orders` route in App.tsx
-  - Added "接单管理" to sidebar and mobile navigation
+## Next Steps
 
-#### Bug Fix: Duplicate API Requests ✅
-- **Problem:** React 18 StrictMode double-executes useEffect in development, causing duplicate API calls when navigating between pages
-- **Solution:** Created `useAsyncEffect` custom hook in `frontend/src/hooks/useFetchOnce.ts`
-  - Tracks dependency changes to distinguish StrictMode re-runs from actual data changes
-  - Prevents duplicate async execution while preserving normal re-fetch behavior
-- **Files Updated:** All pages with data fetching now use `useAsyncEffect`:
-  - `DashboardPage.tsx`
-  - `AgentListPage.tsx`
-  - `JobListPage.tsx`
-  - `JobDetailPage.tsx`
-  - `AnalyticsPage.tsx`
-  - `MarketPage.tsx`
-  - `MessageListPage.tsx`
-  - `ChatPage.tsx`
-  - `OrderListPage.tsx`
+Phase 4: API 接口实现 (已完成)
+- [x] 定义撮合平台 Schemas
+- [x] 实现 matching.py API 路由
+- [x] 注册 matching 路由到 api/__init__.py
+- [x] 验证 API 模块导入成功
+- [x] 验证 FastAPI 应用启动成功 (67 个路由)
+- [x] 前端 agent 选择器功能实现
 
----
+Phase 5: Schema 验证与类型定义
+- [ ] 审查现有 Schemas
+- [ ] 补充缺失的响应模型
 
-## Session: 2026-03-13 (SQLAlchemy Migration & UI Fixes)
+Phase 6: 测试与验证
+- [ ] 单元测试
+- [ ] 集成测试
+- [ ] 压力测试
 
-### Recent Work
+## 5-Question Reboot Check
 
-#### Backend: SQLAlchemy 2.0 Migration
-- Created `backend/src/models/db_models.py` with 6 ORM models:
-  - Agent, Job, Bid, Message, Artifact, AdminUser
-  - Using `Mapped[T]` type annotations and `mapped_column()`
-- Refactored `backend/src/db/database.py` for SQLAlchemy session management
-- Updated all DAL modules (agents.py, jobs.py, bids.py, messages.py, artifacts.py)
-- Updated all API routes with `Depends(get_db)` injection
-- Added Alembic migrations (`backend/alembic/`)
-- Created `admin-console` employer agent for job creation
-
-#### Frontend: Dark Theme & Job Management
-- Added Ant Design dark theme via ConfigProvider with `theme.darkAlgorithm`
-- Fixed Popconfirm dark mode styling
-- Added job close functionality with confirmation dialog
-- Fixed modal close button issues
-- Created `frontend/src/styles/ui-improvements.css` for dark mode overrides
-
----
-
-## Session: 2026-03-13 (Implementation)
-
-### Implemented Features
-
-#### Phase 0: API Design & Data Flow ✅
-- Created `api-design.md` with 25+ RESTful endpoints
-- Created `data-flow.md` with 5 core data flows + database schema
-- Created `admin-console-design.md` with UI/UX design (mobile-first)
-
-#### Phase 1: Project Setup ✅
-- Created `backend/` directory structure:
-  - `src/main.py` - FastAPI entry point
-  - `src/api/` - 7 API modules (agents, jobs, bids, messages, admin, mcp_server, __init__)
-  - `src/models/schemas.py` - Pydantic schemas
-  - `src/db/database.py` - SQLite initialization
-  - `requirements.txt` - Python dependencies
-  - `pyproject.toml` - Python project config
-- Created `frontend/` directory structure:
-  - `package.json` - Node dependencies (React, Ant Design Pro, Vite)
-  - `vite.config.ts` - Vite configuration with path aliases
-  - `index.html` - HTML entry point
-  - `postcss.config.json` - PostCSS/Tailwind config
-
-#### Phase 2: Database Schema ✅
-- Created `backend/src/db/database.py` with 6 tables:
-  - `agents` - Agent information and capabilities
-  - `jobs` - Job posting and status tracking
-  - `bids` - Bid submission and hiring
-  - `messages` - Agent communication
-  - `artifacts` - Work submissions
-  - `admin_users` - Admin authentication
-- Created individual database access modules:
-  - `agents.py`, `jobs.py`, `bids.py`, `messages.py`, `artifacts.py`
-
-#### Phase 3: Backend API Implementation ✅
-Implemented REST API endpoints:
-- `/agents/*` - Agent registration, query, status update, list
-- `/jobs/*` - Job CRUD, listing with filtering, bid count
-- `/jobs/:id/bids/*` - Bid submission, listing, accept/reject
-- `/messages/*` - Message creation and listing
-- `/admin/*` - Dashboard stats, analytics, admin functions
-- `mcp_server.py` - FastMCP integration for agent communication
-
-#### Phase 4: Admin Console Implementation ✅
-Created React application with:
-- **Layout Components**:
-  - `Header.tsx` - Top navigation with user menu
-  - `Sidebar.tsx` - Desktop navigation
-  - `MobileNav.tsx` - Bottom mobile navigation
-  - `MainLayout.tsx` - Main layout wrapper
-- **Pages**:
-  - `DashboardPage.tsx` - Stats cards, charts, recent jobs
-  - `AgentListPage.tsx` - Agent CRUD with filtering
-  - `JobListPage.tsx` - Job CRUD with status filtering
-  - `JobDetailPage.tsx` - Job details with bid review
-  - `MessageListPage.tsx` - Conversation list
-  - `ChatPage.tsx` - Chat interface
-  - `AnalyticsPage.tsx` - Charts and daily reports
-  - `LoginPage.tsx` - Authentication
-- **Services/Libs**:
-  - `api.ts` - API service with axios interceptors
-  - `types/` - TypeScript type definitions
-  - `utils/formatters.ts` - Formatting utilities
-  - `utils/helper.ts` - Helper utilities
-  - `stores/` - Zustand state management (auth, messages)
-
----
-
-### Completed Tasks
-
-| Task | Status |
-|------|--------|
-| Phase 0: API Design | ✅ Complete |
-| Phase 1: Project Setup | ✅ Complete |
-| Phase 2: Database Schema | ✅ Complete |
-| Phase 3: Backend API | ✅ Complete |
-| Phase 4: Admin Console | ✅ Complete |
-| Phase 5: MCP Integration | ⏳ Pending |
-| Phase 6: Testing | ⏳ Pending |
-
----
-
-### Next Steps
-1. Phase 5: MCP Integration with OpenClaw
-2. Phase 6: Testing & Validation
+| Question | Answer |
+|----------|--------|
+| Where am I? | Phase 4 complete, agent selector feature implemented |
+| Where am I going? | Phase 5/6 测试验证 |
+| What's the goal? | 实现撮合平台，支持实时通信和状态流转 |
+| What have I learned? | 见 findings.md |
+| What have I done? | 数据模型、Redis/WebSocket 基础设施、领域服务层、API 接口层、前端 agent 选择器 |

@@ -14,6 +14,7 @@ from .db.database import init_database
 from .mcp_server import mcp
 from .middleware.observability import ObservabilityMiddleware, BusinessMetricsMiddleware
 from .utils.logger import setup_logger
+from .websocket.routes import router as websocket_router
 
 # Initialize logging system
 setup_logger()
@@ -57,6 +58,9 @@ app.add_middleware(BusinessMetricsMiddleware)
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
+
+# Include WebSocket router
+app.include_router(websocket_router)
 
 # Mount MCP server at /mcp endpoint
 # OpenClaw agents connect here with their API keys
