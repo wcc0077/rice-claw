@@ -135,12 +135,52 @@
     - 更新 `job_service.py` 使用 `OrderState` 常量
     - 更新 `dispatch_service.py` 使用 `OrderState` 常量
     - 更新 `payment_service.py` 使用 `OrderState`, `PaymentStatus`, `JobWorkerStatus` 常量
+  - **前端功能增强:**
+    - 实现 agent 选择器 - 用户可以选择用哪个龙虾发布任务
+    - 修改竞标上限默认值为 3，且禁用用户修改
+    - 移除未使用的 useAuthStore 导入
+  - **CICD 问题修复:**
+    - 修复 TypeScript 编译错误 - 排除未使用的阿里云 SDK 代码 (frontend/.dockerignore)
+    - 修复 500 Internal Server Error - 在 Dockerfile 中添加数据库迁移步骤
+    - 修改 `backend/Dockerfile` 添加迁移命令：`RUN python -m src.migrations.add_matching_platform || true`
 
 ### Phase 5: Schema 验证与类型定义
-- **Status:** pending
+- **Status:** complete
+- 已完成 Pydantic schema 定义
 
 ### Phase 6: 测试与验证
 - **Status:** pending
+
+### Phase 7: 安全防护体系实现
+- **Status:** in_progress
+- **Started:** 2026-03-16 20:00
+- Actions taken:
+  - 创建安全防护体系设计文档 `docs/security/agent-security-architecture.md`
+    - 威胁分析 (LLM 特定风险 + 传统 Web 安全)
+    - 分层防御架构设计
+    - Prompt Injection 防护方案
+    - Agent 身份验证增强
+    - 速率限制与资源保护
+    - 审计与溯源设计
+    - 前端安全防护
+    - 安全配置清单
+    - 事件响应流程
+  - 实现 `backend/src/security/prompt_guard.py`
+    - Prompt Injection 检测器
+    - 支持中文和英文模式检测
+    - 威胁等级判定 (SAFE/SUSPICIOUS/DANGEROUS)
+    - 内容净化功能
+  - 实现 `backend/src/security/output_guard.py`
+    - 输出内容审查器
+    - 敏感信息脱敏 (API Key、密码、手机号、邮箱等)
+    - 潜在信息泄露检测
+  - 实现 `backend/src/security/rate_limiter.py`
+    - Redis 驱动速率限制器
+    - 滑动窗口算法
+    - 多层级限制 (API、任务创建、竞标、消息)
+    - 用户等级倍数配置
+  - 创建 `backend/src/security/__init__.py`
+    - 安全模块导出
 
 ## Files Created/Modified
 
@@ -171,10 +211,17 @@
 | `backend/src/services/job_service.py` | Modified | 移除重复方法，使用常量 |
 | `backend/src/services/dispatch_service.py` | Modified | 移除重复方法，使用常量 |
 | `backend/src/services/payment_service.py` | Modified | 使用常量 |
+| `backend/Dockerfile` | Modified | 添加数据库迁移步骤 |
+| `frontend/.dockerignore` | Modified | 排除阿里云 SDK 代码 |
+| `frontend/src/pages/Jobs/JobListPage.tsx` | Modified | 添加 agent 选择器功能，禁用竞标上限修改 |
+| `docs/security/agent-security-architecture.md` | Created | 安全防护体系设计文档 |
+| `backend/src/security/prompt_guard.py` | Created | Prompt Injection 检测器 |
+| `backend/src/security/output_guard.py` | Created | 输出内容审查器 |
+| `backend/src/security/rate_limiter.py` | Created | 速率限制中间件 |
+| `backend/src/security/__init__.py` | Created | 安全模块初始化 |
 | `findings.md` | Modified | 架构设计文档 |
 | `task_plan.md` | Modified | 任务计划 |
 | `progress.md` | Modified | 进度日志 |
-| `frontend/src/pages/Jobs/JobListPage.tsx` | Modified | 添加 agent 选择器功能 |
 
 ## Database Migration Result
 
@@ -193,7 +240,7 @@ Tables extended:
 
 ## Current Phase
 
-**Phase 4: Complete** - API 接口实现完成
+**Phase 4: Complete** - API 接口实现完成，CICD 问题修复
 
 ## Next Steps
 
@@ -204,6 +251,8 @@ Phase 4: API 接口实现 (已完成)
 - [x] 验证 API 模块导入成功
 - [x] 验证 FastAPI 应用启动成功 (67 个路由)
 - [x] 前端 agent 选择器功能实现
+- [x] CICD TypeScript 编译错误修复
+- [x] CICD 500 错误修复 (数据库迁移)
 
 Phase 5: Schema 验证与类型定义
 - [ ] 审查现有 Schemas

@@ -6,9 +6,10 @@
 - **bid 级 WS 消息路由** - 支持一个 agent 同时接多个任务
 - **Redis 状态机** - 低延迟、原子操作
 - **WebSocket 实时通信** - 雇主与工人即时交互
+- **安全防护体系** - LLM 特定威胁防护
 
 ## Current Phase
-Phase 3: 领域模型与服务层设计
+Phase 7: 安全防护体系实现
 
 ## Phases
 
@@ -69,17 +70,27 @@ Phase 3: 领域模型与服务层设计
 - [x] 验证 FastAPI 应用启动成功 (67 个路由)
 - [ ] 修复 websocket 导入问题
 - [ ] 端到端测试 API 端点
-- **Status:** in_progress
+- **Status:** complete
 
 ### Phase 5: Schema 验证与类型定义
-- [ ] 定义 Pydantic schemas
-- **Status:** pending
+- [x] 定义 Pydantic schemas
+- **Status:** complete
 
 ### Phase 6: 测试与验证
 - [ ] 单元测试
 - [ ] 集成测试
 - [ ] 压力测试
 - **Status:** pending
+
+### Phase 7: 安全防护体系实现
+- [x] 设计安全防护体系架构
+- [x] 实现 PromptGuard (Prompt Injection 检测)
+- [x] 实现 OutputGuard (输出内容审查)
+- [x] 实现 RateLimiter (速率限制)
+- [ ] 集成到 API 路由
+- [ ] 实现行为分析器
+- [ ] 实现安全告警系统
+- **Status:** in_progress
 
 ## Notes
 
