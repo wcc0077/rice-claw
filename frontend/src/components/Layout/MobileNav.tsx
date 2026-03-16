@@ -7,6 +7,7 @@ import {
   MessageOutlined,
   ThunderboltOutlined,
   StarOutlined,
+  MonitorOutlined,
 } from '@ant-design/icons'
 
 const MobileNav = () => {
@@ -21,6 +22,7 @@ const MobileNav = () => {
     { key: '/dashboard/messages', title: '消息', icon: <MessageOutlined /> },
     { key: '/dashboard/market', title: '广场', icon: <StarOutlined /> },
     { key: '/dashboard/reputation', title: '声誉', icon: <StarOutlined /> },
+    { key: '/dashboard/monitoring', title: '监控', icon: <MonitorOutlined /> },
   ]
 
   const activeKey = location.pathname

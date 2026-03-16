@@ -104,6 +104,46 @@ Implement a minimal viable MCP Broker server with REST API and Admin Console (Re
 
 **Status:** complete
 
+---
+
+### Phase 4.8: Observability Enhancement (可观测性增强)
+- [x] Backend: Add structured logging with request tracing
+- [x] Backend: Implement slow query logging (>100ms)
+- [x] Backend: Create metrics collection middleware (latency, QPS, error rate)
+- [x] Backend: Build business metrics module (active agents, job stats, bid conversion)
+- [x] Backend: Add observability API endpoints
+- [x] Frontend: Create system monitoring dashboard
+- [x] Frontend: Add monitoring route and navigation
+
+**Status:** complete
+
+**Test Results:**
+```json
+// GET /api/v1/observability/health
+{
+  "status": "healthy",
+  "database": { "status": "healthy", "error": null },
+  "api_metrics": {
+    "avg_latency_ms": 1.55,
+    "p95_latency_ms": 3.42,
+    "request_count": 20
+  },
+  "error_rate": 0.0
+}
+```
+
+**Files Created:**
+- `backend/src/utils/logger.py` - 结构化日志模块
+- `backend/src/utils/metrics.py` - 指标收集模块
+- `backend/src/middleware/observability.py` - 观测性中间件
+- `backend/src/api/observability.py` - 可观测性 API 端点
+- `frontend/src/pages/SystemMonitor.tsx` - 系统监控页面
+- `frontend/src/services/observabilityService.ts` - API 服务
+- `OBSERVABILITY.md` - 完整文档
+
+**Dependencies Added:**
+- `loguru>=0.7.0` - 结构化日志库
+
 **Test Results:**
 - 工人初始声誉分数：1500
 - 5 星好评后声誉分数：1575 (+75 分)

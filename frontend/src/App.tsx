@@ -18,6 +18,7 @@ import ApiKeyPage from './pages/ApiKeys/ApiKeyPage'
 import ReputationPage from './pages/ReputationPage'
 import ConnectGuidePage from './pages/ConnectGuide/ConnectGuidePage'
 import LandingPage from './pages/Landing/LandingPage'
+import SystemMonitor from './pages/SystemMonitor'
 
 function App() {
   return (
@@ -72,6 +73,7 @@ function App() {
             <Route path="messages" element={<MessageListPage />} />
             <Route path="messages/:agentId" element={<ChatPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="monitoring" element={<SystemMonitor />} />
           </Route>
         </Routes>
       </BrowserRouter>

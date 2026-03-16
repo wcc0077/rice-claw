@@ -8,6 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import router as api_router
 from .db.database import init_database
 from .mcp_server import mcp
+from .middleware.observability import ObservabilityMiddleware, BusinessMetricsMiddleware
+from .utils.logger import setup_logger
+
+# Initialize logging system
+setup_logger()
 
 # Create MCP HTTP app first (needed for lifespan)
 # Use stateless_http=True for simpler plugin integration (no session management required)
@@ -34,7 +39,6 @@ app = FastAPI(
 )
 
 # CORS middleware - configure for production
-# TODO: Replace allow_origins=["*"] with specific allowed origins in production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify allowed origins
@@ -42,6 +46,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Observability middleware (must be added AFTER CORS)
+app.add_middleware(ObservabilityMiddleware)
+app.add_middleware(BusinessMetricsMiddleware)
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
@@ -63,11 +71,14 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint with database status."""
+    """Health check endpoint - deprecated, use /api/v1/observability/health"""
+    from .utils.logger import get_logger
+    logger = get_logger(__name__)
+    logger.warning("/health endpoint is deprecated, use /api/v1/observability/health")
+
     try:
         from sqlalchemy import text
         from .db.database import engine
-        from sqlalchemy import text
         # Test connection
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

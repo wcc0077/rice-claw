@@ -1,5 +1,59 @@
 # Session Progress Log
 
+## Session: 2026-03-16 (Observability Enhancement)
+
+### Implemented Features
+
+#### Phase 4.8: Observability Enhancement (可观测性增强) ✅
+
+**Backend Changes:**
+- Created `backend/src/utils/logger.py` - Structured logging with loguru
+  - Request ID tracing
+  - Slow query logging (>100ms threshold)
+  - JSON format output for machine parsing
+  - Auto rotation (10MB/file), async writing
+  - Timer context manager for operation timing
+
+- Created `backend/src/utils/metrics.py` - Metrics collection module
+  - API latency metrics (avg, p50, p95, p99)
+  - QPS per endpoint
+  - Error rate per endpoint
+  - Business metrics caching (active agents, job stats, bid stats)
+
+- Created `backend/src/middleware/observability.py` - Observability middleware
+  - Automatic Request ID generation
+  - Latency recording for all requests
+  - Slow request logging (>1000ms)
+  - Periodic business metrics update (60s interval)
+
+- Created `backend/src/api/observability.py` - Observability API endpoints
+  - `GET /api/v1/observability/health` - Enhanced health check
+  - `GET /api/v1/observability/metrics` - Full system metrics
+  - `GET /api/v1/observability/metrics/latency` - Latency details
+  - `GET /api/v1/observability/metrics/business` - Business metrics
+
+- Updated `backend/src/main.py` - Registered middleware and logging
+- Updated `backend/src/api/__init__.py` - Added observability router
+- Added dependency: `loguru>=0.7.0`
+
+**Frontend Changes:**
+- Created `frontend/src/pages/SystemMonitor.tsx` - System monitoring dashboard
+  - Health status display (healthy/degraded/unhealthy)
+  - Core metrics cards (active agents, requests, latency)
+  - Latency details table
+  - Job/Bid status distribution
+  - Auto-refresh every 30 seconds
+
+- Created `frontend/src/services/observabilityService.ts` - API service
+- Updated `frontend/src/App.tsx` - Added `/dashboard/monitoring` route
+- Updated `frontend/src/components/Layout/Sidebar.tsx` - Added "系统监控" menu
+- Updated `frontend/src/components/Layout/MobileNav.tsx` - Added mobile nav item
+
+**Documentation:**
+- Created `OBSERVABILITY.md` - Complete usage guide
+
+---
+
 ## Session: 2026-03-14 (Order Management Page)
 
 ### Implemented Features

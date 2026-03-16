@@ -10,6 +10,7 @@ import {
   SafetyCertificateOutlined,
   KeyOutlined,
   StarOutlined,
+  MonitorOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { memo } from 'react'
@@ -134,6 +135,11 @@ const Sidebar = memo(({ unreadMessages = 0, systemHealth = 'healthy' }: SidebarP
       key: '/dashboard/reputation',
       icon: <StarOutlined aria-hidden="true" />,
       label: '声誉规则',
+    },
+    {
+      key: '/dashboard/monitoring',
+      icon: <MonitorOutlined aria-hidden="true" />,
+      label: '系统监控',
     },
   ]
 
