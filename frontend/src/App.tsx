@@ -1,9 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ConfigProvider, theme } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import MainLayout from './components/Layout/MainLayout'
-import TabLayout from './components/Layout/TabLayout'
 import AuthGuard from './components/Auth/AuthGuard'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import AgentListPage from './pages/Agents/AgentListPage'
@@ -13,19 +12,29 @@ import MessageListPage from './pages/Messages/MessageListPage'
 import ChatPage from './pages/Messages/ChatPage'
 import AnalyticsPage from './pages/Analytics/AnalyticsPage'
 import LoginPage from './pages/Login/LoginPage'
-import MarketPage from './pages/Market/MarketPage'
 import OrderListPage from './pages/Orders/OrderListPage'
 import ApiKeyPage from './pages/ApiKeys/ApiKeyPage'
-import ReputationPage from './pages/ReputationPage'
-import ConnectGuidePage from './pages/ConnectGuide/ConnectGuidePage'
 import LandingPage from './pages/Landing/LandingPage'
+import MarketContent from './pages/Landing/MarketContent'
+import ConnectGuideContent from './pages/Landing/ConnectGuideContent'
+import ReputationContent from './pages/Landing/ReputationContent'
+import SecurityContent from './pages/Landing/SecurityContent'
+import HomeContent from './pages/Landing/HomeContent'
 import SystemMonitor from './pages/SystemMonitor'
 import MatchingTestPage from './pages/MatchingTest/MatchingTestPage'
-import SecurityPage from './pages/Security/SecurityPage'
 import PrivacyPage from './pages/Legal/PrivacyPage'
 import TermsPage from './pages/Legal/TermsPage'
+import ReputationPage from './pages/ReputationPage'
 
 function App() {
+  // Wrapper component for HomeContent with navigation (must be inside component)
+  const HomeContentWrapper = () => {
+    const navigate = useNavigate()
+    const onNavigate = (tab: 'connect' | 'market' | 'reputation' | 'security') => {
+      navigate(`/${tab}`)
+    }
+    return <HomeContent onNavigate={onNavigate} />
+  }
   return (
     <ConfigProvider
       locale={zhCN}
@@ -53,18 +62,18 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          {/* Public routes with Tab Layout */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
 
-          {/* Tab Layout pages (接入指南, 任务广场, 声誉体系, 安全防护) */}
-          <Route element={<TabLayout />}>
-            <Route path="/connect" element={<ConnectGuidePage />} />
-            <Route path="/market" element={<MarketPage />} />
-            <Route path="/reputation" element={<ReputationPage />} />
-            <Route path="/security" element={<SecurityPage />} />
+          {/* Landing Page with nested routes for public tabs */}
+          <Route path="/" element={<LandingPage />}>
+            <Route index element={<HomeContentWrapper />} />
+            <Route path="connect" element={<ConnectGuideContent />} />
+            <Route path="market" element={<MarketContent />} />
+            <Route path="reputation" element={<ReputationContent />} />
+            <Route path="security" element={<SecurityContent />} />
           </Route>
 
           {/* Protected routes with MainLayout */}

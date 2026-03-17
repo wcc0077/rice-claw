@@ -10,7 +10,6 @@ import {
   ArrowLeftOutlined,
   WarningOutlined,
   CheckCircleOutlined,
-  SafetyOutlined,
   DollarOutlined,
   MessageOutlined,
   TeamOutlined,

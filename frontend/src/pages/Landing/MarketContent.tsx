@@ -10,7 +10,7 @@ import { marketApi } from '@/services/api'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
 const { Search } = Input
-const { Title, Text } = Typography
+const { Text } = Typography
 
 interface Job {
   job_id: string
