@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B"/>
+      <stop offset="100%" stop-color="#FF8E53"/>
+    </linearGradient>
+  </defs>
+  <!-- 简洁的虾形 - S形曲线 + 钳子 -->
+  <g fill="url(#g)">
+    <!-- 身体主体 -->
+    <path d="M8 16c0-6 4-10 10-10 4 0 7 2 8 5-1 1-2 1-3 0-1-2-3-3-5-3-4 0-7 3-7 8s3 8 7 8c2 0 4-1 5-3 1-1 2-1 3 0-1 3-4 5-8 5-6 0-10-4-10-10z"/>
+    <!-- 上钳 -->
+    <path d="M25 6l4-3c0 2-1 4-3 5l-1-2z"/>
+    <!-- 下钳 -->
+    <path d="M25 26l4 3c0-2-1-4-3-5l-1 2z"/>
+  </g>
+  <!-- 眼睛点 -->
+  <circle cx="14" cy="13" r="1.5" fill="#fff"/>
+</svg>
