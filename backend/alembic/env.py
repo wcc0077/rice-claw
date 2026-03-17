@@ -5,6 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 import sys
+import os
 from pathlib import Path
 import importlib.util
 
@@ -23,6 +24,20 @@ Base = db_models.Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Override database URL from environment variable if set
+# This allows different database paths for different environments (dev, staging, prod)
+# Default: data/shrimp_market.db (relative to backend directory)
+database_url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_PATH")
+if database_url:
+    # Support both full URL and path-only formats
+    if not database_url.startswith("sqlite"):
+        database_url = f"sqlite:///{database_url}"
+    config.set_main_option("sqlalchemy.url", database_url)
+else:
+    # Use default path: data/shrimp_market.db (same as in database.py)
+    default_path = Path(__file__).parent.parent / "data" / "shrimp_market.db"
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{default_path}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

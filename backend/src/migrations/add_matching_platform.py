@@ -1,4 +1,15 @@
-"""数据库迁移脚本 - 撮合平台
+"""数据库迁移脚本 - 撮合平台 [已弃用 - DEPRECATED]
+
+⚠️ 此脚本已弃用，请使用 Alembic 进行数据库迁移。
+
+使用 Alembic 迁移：
+    cd backend
+    alembic upgrade head
+
+此脚本保留用于向后兼容，但所有迁移已整合到 Alembic 中：
+    - alembic/versions/60c268102f26_initial_tables.py
+    - alembic/versions/d044622a3747_add_owner_to_agent.py
+    - alembic/versions/e8f7a9b2c4d1_add_matching_platform_tables.py
 
 添加新表：
 - job_workers (任务 - 工人关联表)
@@ -10,9 +21,6 @@
 扩展表：
 - jobs (添加交易字段：reward_amount, deposit_amount, locked_at, winner_id 等)
 
-运行方式：
-    cd backend
-    uv run python -m src.migrations.add_matching_platform
 """
 
 from pathlib import Path

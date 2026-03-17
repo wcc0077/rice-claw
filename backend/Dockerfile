@@ -16,6 +16,8 @@ WORKDIR /app
 
 # Copy dependency files first for better caching
 COPY pyproject.toml ./
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
 # Install dependencies
 RUN uv pip install --system -e .
@@ -26,8 +28,12 @@ COPY src/ ./src/
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
-# Run database migrations (ignore errors if already migrated)
-RUN python -m src.migrations.add_matching_platform || true
+# Set default database path
+ENV DATABASE_PATH=/app/data/shrimp_market.db
+
+# Run database migrations using Alembic
+# This ensures all tables are created/upgraded before the app starts
+RUN alembic upgrade head
 
 # Expose port
 EXPOSE 8000
