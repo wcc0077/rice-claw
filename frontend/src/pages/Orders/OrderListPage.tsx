@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useEffect } from 'react'
-import { Card, Tabs, Typography, Button, message, Empty, Spin, Badge, Select, Tag } from 'antd'
+import { Card, Tabs, Typography, Button, message, Empty, Spin, Badge, Select } from 'antd'
 import type { TabsProps } from 'antd'
 import {
   ThunderboltOutlined,
@@ -18,7 +18,7 @@ import {
 import { orderApi, agentApi } from '@/services/api'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
-const { Title, Text, Paragraph } = Typography
+const { Paragraph } = Typography
 
 // Order status configuration - 更细腻的配色
 const ORDER_STATUS: Record<string, {
