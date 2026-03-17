@@ -80,6 +80,7 @@ def get_job_dict(db: Session, job_id: str) -> Optional[Dict[str, Any]]:
 
 def list_jobs(
     db: Session,
+    owner_id: Optional[str] = None,
     status: Optional[str] = None,
     tag: Optional[str] = None,
     page: int = 1,
@@ -89,6 +90,7 @@ def list_jobs(
 
     Args:
         db: 数据库会话
+        owner_id: 管理员用户ID筛选（可选，不传则返回所有）
         status: 状态筛选
         tag: 标签筛选
         page: 页码
@@ -97,6 +99,8 @@ def list_jobs(
     Returns:
         包含 jobs 和 pagination 的字典
     """
+    from ..models.db_models import Agent
+
     # 构建查询（带竞标数统计）
     query = (
         select(Job, func.count(Bid.bid_id).label("bid_count"))
@@ -104,6 +108,17 @@ def list_jobs(
         .where(Job.status != "DELETED")
     )
     count_query = select(func.count()).select_from(Job).where(Job.status != "DELETED")
+
+    # 添加 owner_id 过滤（通过 Agent 关联）
+    if owner_id:
+        # 子查询：获取当前用户拥有的所有 Agent 的 agent_id
+        employer_ids_subquery = (
+            select(Agent.agent_id)
+            .where(Agent.owner_id == owner_id)
+            .where(Agent.deleted == False)  # noqa: E712
+        )
+        query = query.where(Job.employer_id.in_(employer_ids_subquery))
+        count_query = count_query.where(Job.employer_id.in_(employer_ids_subquery))
 
     # 添加筛选条件
     if status:
@@ -192,29 +207,26 @@ def update_job_dict(db: Session, job_id: str, updates: Dict[str, Any]) -> Option
     return result
 
 
-def delete_job(db: Session, job_id: str, employer_id: str | None = None) -> bool:
+def delete_job(db: Session, job_id: str) -> bool:
     """删除任务（软删除）
+
+    注意: 权限检查应在 Service 层完成，此处只做数据操作。
 
     Args:
         db: 数据库会话
         job_id: 任务ID
-        employer_id: 雇主ID（可选，用于权限验证）
 
     Returns:
         是否删除成功
 
     Raises:
-        ValueError: 任务不存在或权限不足或任务状态不允许删除
+        ValueError: 任务不存在或任务状态不允许删除
     """
     job = get_job(db, job_id)
     if not job:
         raise ValueError(f"Job {job_id} not found")
 
-    # 权限验证
-    if employer_id and job.employer_id != employer_id:
-        raise ValueError("You can only delete your own jobs")
-
-    # 状态验证：只有 OPEN 状态的任务可以删除
+    # 状态验证：只有 OPEN、CLOSED、REJECTED 状态的任务可以删除
     if job.status not in ["OPEN", "CLOSED", "REJECTED"]:
         raise ValueError(f"Cannot delete job with status '{job.status}'. Only OPEN, CLOSED, or REJECTED jobs can be deleted.")
 

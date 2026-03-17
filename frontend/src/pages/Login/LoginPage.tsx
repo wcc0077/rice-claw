@@ -119,6 +119,7 @@ const LoginPage = () => {
 
         if (response.data.success) {
           localStorage.setItem('auth_token', response.data.token)
+          localStorage.setItem('user_id', response.data.user.user_id)
           localStorage.setItem('agent_id', response.data.user.user_id)
           localStorage.setItem('user_info', JSON.stringify(response.data.user))
 
@@ -152,7 +153,7 @@ const LoginPage = () => {
 
         if (response.data.access_token) {
           localStorage.setItem('auth_token', response.data.access_token)
-          localStorage.setItem('agent_id', response.data.agent_id)
+          localStorage.setItem('user_id', response.data.user_id)
 
           message.success({
             content: '登录成功',

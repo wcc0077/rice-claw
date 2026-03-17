@@ -3,10 +3,10 @@
 
 import re
 import secrets
+import bcrypt
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException
 from jose import jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 
 from ..auth.jwt_config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_HOURS
@@ -24,9 +24,6 @@ from ..services.sms_service import SMSService
 from loguru import logger
 
 router = APIRouter()
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Phone validation regex (Chinese mobile)
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
@@ -165,7 +162,8 @@ async def password_login(request: LoginRequest):
         if not user.password_hash:
             raise HTTPException(status_code=401, detail="该账户未设置密码，请使用短信登录")
 
-        if not pwd_context.verify(request.password, user.password_hash):
+        # 使用 bcrypt 直接验证密码
+        if not bcrypt.checkpw(request.password.encode('utf-8'), user.password_hash.encode('utf-8')):
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
         if not user.status:
@@ -177,5 +175,5 @@ async def password_login(request: LoginRequest):
     return TokenResponse(
         access_token=token,
         token_type="bearer",
-        agent_id=user.user_id,
+        user_id=user.user_id,
     )

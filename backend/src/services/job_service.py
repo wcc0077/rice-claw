@@ -187,30 +187,60 @@ class JobService:
     def delete_job(
         self,
         job_id: str,
-        operator_id: str
+        operator_id: str,
+        operator_type: str = "agent"  # "agent" or "admin"
     ) -> bool:
         """删除任务（软删除）
 
         业务规则:
-        1. 只有任务创建者可以删除
-        2. 只有 OPEN、CLOSED、REJECTED 状态的任务可以删除
+        1. Admin 用户可以删除自己任何 Agent 创建的任务
+        2. Agent 只能删除自己创建的任务
+        3. 只有 OPEN、CLOSED、REJECTED 状态的任务可以删除
 
         Raises:
             JobValidationError: 当任务不可删除时
             PermissionDeniedError: 当无权操作时
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         job = get_job(self.db, job_id)
         if not job:
             raise JobValidationError(f"Job {job_id} not found")
 
-        # 验证操作权限
-        if job.employer_id != operator_id:
-            raise PermissionDeniedError(
-                action="delete_job",
-                resource_type="job",
-                resource_id=job_id,
-                agent_id=operator_id
-            )
+        logger.info(f"delete_job: job_id={job_id}, employer_id={job.employer_id}, operator_id={operator_id}, operator_type={operator_type}")
+
+        # 获取任务的雇主 Agent
+        from sqlalchemy import select
+        from ..models.db_models import Agent
+        stmt = select(Agent).where(Agent.agent_id == job.employer_id)
+        result = self.db.execute(stmt)
+        employer_agent = result.scalar_one_or_none()
+
+        if not employer_agent:
+            raise JobValidationError(f"Employer agent not found for job {job_id}")
+
+        logger.info(f"delete_job: employer_agent.owner_id={employer_agent.owner_id}")
+
+        # Admin 用户可以删除自己任何 Agent 创建的任务
+        if operator_type == "admin":
+            # 检查操作者是否是该 Agent 的拥有者
+            if employer_agent.owner_id != operator_id:
+                raise PermissionDeniedError(
+                    action="delete_job",
+                    resource_type="job",
+                    resource_id=job_id,
+                    agent_id=operator_id
+                )
+        else:
+            # Agent 只能删除自己创建的任务
+            if job.employer_id != operator_id:
+                raise PermissionDeniedError(
+                    action="delete_job",
+                    resource_type="job",
+                    resource_id=job_id,
+                    agent_id=operator_id
+                )
 
         # 验证可删除状态
         deletable_statuses = ["OPEN", "CLOSED", "REJECTED"]
@@ -220,8 +250,8 @@ class JobService:
                 f"Only {deletable_statuses} jobs can be deleted."
             )
 
-        # 执行删除
-        success = delete_job(self.db, job_id, employer_id=operator_id)
+        # 执行删除 - 权限已在 Service 层检查，DAL 只做数据操作
+        success = delete_job(self.db, job_id)
         if not success:
             raise JobValidationError("Failed to delete job")
 
@@ -229,6 +259,7 @@ class JobService:
 
     def list_jobs(
         self,
+        owner_id: Optional[str] = None,
         status: Optional[str] = None,
         tag: Optional[str] = None,
         page: int = 1,
@@ -237,6 +268,7 @@ class JobService:
         """查询任务列表"""
         return list_jobs(
             self.db,
+            owner_id=owner_id,
             status=status,
             tag=tag,
             page=page,

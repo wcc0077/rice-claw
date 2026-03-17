@@ -6,15 +6,29 @@ from sqlalchemy.orm import Session
 from ..db.database import get_db
 from ..db import bids as bid_dal
 from ..db import jobs as job_dal
+from ..db import agents as agent_dal
 from ..models.schemas import (
     BidCreate, BidResponse, BidListResponse,
     ReputationRating
 )
+from ..models.db_models import AdminUser
 from ..utils.reputation import update_agent_reputation, get_reputation_change_description
 from ..services import BidService, BidValidationError
+from ..auth.dependencies import get_current_admin_user
 from ..auth.permissions import PermissionDeniedError
 
 router = APIRouter()
+
+
+def verify_job_owner(db: Session, job_id: str, admin: AdminUser) -> bool:
+    """验证 job 是否属于当前管理员的 Agent"""
+    job = job_dal.get_job(db, job_id)
+    if not job:
+        return False
+    employer = agent_dal.get_agent(db, job.employer_id)
+    if not employer:
+        return False
+    return employer.owner_id == admin.user_id
 
 
 @router.post("/{job_id}", response_model=BidResponse)
@@ -50,9 +64,14 @@ async def create_bid_endpoint(
 @router.get("/{job_id}", response_model=BidListResponse)
 async def list_bids_endpoint(
     job_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
-    """List all bids for a job."""
+    """List all bids for a job (only if job is owned by current user's agent)."""
+    # 验证 job 属于当前用户
+    if not verify_job_owner(db, job_id, current_admin):
+        raise HTTPException(status_code=403, detail="You don't have permission to view this job's bids")
+
     bid_service = BidService(db)
 
     try:
@@ -78,20 +97,29 @@ async def list_bids_endpoint(
 async def accept_bid_endpoint(
     job_id: str,
     bid_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
-    """Accept a bid (marks as SELECTED, others as NOT_SELECTED)."""
+    """Accept a bid (marks as SELECTED, others as NOT_SELECTED).
+
+    Only the job owner (admin who owns the employer agent) can accept bids.
+    """
+    # 验证 job 属于当前用户
+    if not verify_job_owner(db, job_id, current_admin):
+        raise HTTPException(status_code=403, detail="You don't have permission to accept bids for this job")
+
     bid_service = BidService(db)
 
     try:
-        # 注意：这里需要雇主 ID 进行权限验证，实际使用中应从认证上下文获取
-        # 暂时使用一个占垫值，实际应该从 current_agent 获取
-        employer_id = "placeholder_employer_id"  # TODO: 从认证上下文获取
+        # 获取 job 的 employer_id
+        job = job_dal.get_job(db, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
         updated_bid = bid_service.accept_bid(
             job_id=job_id,
             bid_id=bid_id,
-            employer_id=employer_id
+            employer_id=job.employer_id
         )
         return {"message": "Bid accepted", "bid": BidResponse(**updated_bid)}
     except BidValidationError as e:
@@ -104,19 +132,29 @@ async def accept_bid_endpoint(
 async def reject_bid_endpoint(
     job_id: str,
     bid_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
-    """Reject a bid (marks as NOT_SELECTED)."""
+    """Reject a bid (marks as NOT_SELECTED).
+
+    Only the job owner (admin who owns the employer agent) can reject bids.
+    """
+    # 验证 job 属于当前用户
+    if not verify_job_owner(db, job_id, current_admin):
+        raise HTTPException(status_code=403, detail="You don't have permission to reject bids for this job")
+
     bid_service = BidService(db)
 
     try:
-        # TODO: 从认证上下文获取雇主 ID
-        employer_id = "placeholder_employer_id"
+        # 获取 job 的 employer_id
+        job = job_dal.get_job(db, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
         updated_bid = bid_service.reject_bid(
             job_id=job_id,
             bid_id=bid_id,
-            employer_id=employer_id
+            employer_id=job.employer_id
         )
         return {"message": "Bid rejected", "bid": BidResponse(**updated_bid)}
     except BidValidationError as e:
@@ -130,12 +168,18 @@ async def rate_bid_endpoint(
     job_id: str,
     bid_id: str,
     request: ReputationRating,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
     """雇主对完成的订单进行评分（影响 worker 声誉）
 
     仅在订单状态为 COMPLETED 或 DELIVERED 时可用。
+    仅 job 所有者可以评分。
     """
+    # 验证 job 属于当前用户
+    if not verify_job_owner(db, job_id, current_admin):
+        raise HTTPException(status_code=403, detail="You don't have permission to rate this job")
+
     # 验证订单存在
     bid = bid_dal.get_bid(db, bid_id)
     if not bid:

@@ -6,6 +6,7 @@ import JobCard from './JobCard'
 import AgentCard from './AgentCard'
 import LoginPrompt from './LoginPrompt'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
+import { useAuthStore } from '@/stores/auth'
 
 const { Search } = Input
 const { Title, Text } = Typography
@@ -67,12 +68,18 @@ const MarketPage = () => {
   const [loginPromptOpen, setLoginPromptOpen] = useState(false)
 
   // Check auth status on mount
+  const { logout } = useAuthStore()
   useEffect(() => {
     const token = localStorage.getItem('auth_token')
     const agentId = localStorage.getItem('agent_id')
     setIsLoggedIn(!!token)
     setCurrentAgentId(agentId)
   }, [])
+
+  const handleLogout = () => {
+    logout()
+    window.location.href = '/login'
+  }
 
   // Fetch data
   const fetchJobs = useCallback(async (page = 1, append = false) => {
@@ -241,12 +248,7 @@ const MarketPage = () => {
                 <Button icon={<AppstoreOutlined />} href="/">
                   控制台
                 </Button>
-                <Button onClick={() => {
-                  localStorage.removeItem('auth_token')
-                  localStorage.removeItem('agent_id')
-                  setIsLoggedIn(false)
-                  setCurrentAgentId(null)
-                }}>
+                <Button onClick={handleLogout}>
                   退出
                 </Button>
               </>

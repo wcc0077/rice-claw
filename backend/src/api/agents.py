@@ -8,7 +8,8 @@ from ..db.database import get_db
 from ..db import agents as agent_dal
 from ..db import bids as bid_dal
 from ..models.schemas import AgentCreate, AgentUpdate, AgentEdit, AgentResponse, AgentListResponse
-from ..auth.dependencies import get_current_agent
+from ..models.db_models import AdminUser, Agent
+from ..auth.dependencies import get_current_admin_user, get_current_agent
 
 router = APIRouter()
 
@@ -16,10 +17,16 @@ router = APIRouter()
 @router.post("", response_model=AgentResponse)
 async def register_agent(
     request: AgentCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
-    """Register a new agent."""
+    """Register a new agent (requires admin authentication).
+
+    The agent will be owned by the current admin user.
+    """
     try:
+        # 设置 owner_id 为当前登录的管理员用户
+        request.owner_id = current_admin.user_id
         agent = agent_dal.create_agent(db, request)
         return AgentResponse(**agent.to_dict())
     except ValueError as e:
@@ -64,15 +71,22 @@ async def list_agents_endpoint(
     status: str | None = None,
     page: int = 1,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
 ):
-    """List agents."""
+    """List agents owned by the current admin user."""
     if page < 1:
         page = 1
     if limit > 100:
         limit = 100
 
-    result = agent_dal.list_agents(db, status=status, page=page, limit=limit)
+    result = agent_dal.list_agents(
+        db,
+        owner_id=current_admin.user_id,  # 只返回当前管理员的 agents
+        status=status,
+        page=page,
+        limit=limit
+    )
     return AgentListResponse(**result)
 
 

@@ -23,7 +23,10 @@ def create_agent(db: Session, agent: AgentCreate) -> Agent:
     Raises:
         ValueError: 代理ID已存在
     """
-    # 检查是否存在
+    from ..models.schemas import AgentCreate as AgentCreateSchema
+    from typing import cast
+
+    # 检查是否存在（包括已删除的）
     existing = db.execute(
         select(Agent).where(Agent.agent_id == agent.agent_id)
     ).scalar_one_or_none()
@@ -38,6 +41,7 @@ def create_agent(db: Session, agent: AgentCreate) -> Agent:
         name=agent.name,
         capabilities=",".join(agent.capabilities) if agent.capabilities else "",
         description=agent.description,
+        owner_id=agent.owner_id,  # 关联管理员用户
     )
     db.add(db_agent)
     db.commit()
@@ -46,7 +50,7 @@ def create_agent(db: Session, agent: AgentCreate) -> Agent:
 
 
 def get_agent(db: Session, agent_id: str) -> Optional[Agent]:
-    """获取单个代理
+    """获取单个代理（排除已删除的）
 
     Args:
         db: 数据库会话
@@ -56,7 +60,10 @@ def get_agent(db: Session, agent_id: str) -> Optional[Agent]:
         代理对象或 None
     """
     return db.execute(
-        select(Agent).where(Agent.agent_id == agent_id)
+        select(Agent).where(
+            Agent.agent_id == agent_id,
+            Agent.deleted == False  # noqa: E712
+        )
     ).scalar_one_or_none()
 
 
@@ -76,6 +83,7 @@ def get_agent_dict(db: Session, agent_id: str) -> Optional[Dict[str, Any]]:
 
 def list_agents(
     db: Session,
+    owner_id: Optional[str] = None,
     status: Optional[str] = None,
     capability: Optional[str] = None,
     page: int = 1,
@@ -85,6 +93,7 @@ def list_agents(
 
     Args:
         db: 数据库会话
+        owner_id: 管理员用户ID筛选（可选，不传则返回所有）
         status: 状态筛选
         capability: 技能筛选
         page: 页码
@@ -93,12 +102,14 @@ def list_agents(
     Returns:
         包含 agents 和 pagination 的字典
     """
-    # 构建查询
-    query = select(Agent)
-    count_query = select(func.count()).select_from(Agent)
+    # 构建查询（默认排除已删除的）
+    query = select(Agent).where(Agent.deleted == False)  # noqa: E712
+    count_query = select(func.count()).select_from(Agent).where(Agent.deleted == False)  # noqa: E712
 
     # 添加筛选条件
     conditions = []
+    if owner_id:
+        conditions.append(Agent.owner_id == owner_id)
     if status:
         conditions.append(Agent.status == status)
     if capability:
@@ -210,9 +221,12 @@ def get_agent_by_api_key(db: Session, api_key: str) -> Optional[Agent]:
     if not key_id:
         return None
 
-    # Find agent by key_id (indexed column - fast lookup)
+    # Find agent by key_id (indexed column - fast lookup, exclude deleted)
     agent = db.execute(
-        select(Agent).where(Agent.api_key_id == key_id)
+        select(Agent).where(
+            Agent.api_key_id == key_id,
+            Agent.deleted == False  # noqa: E712
+        )
     ).scalar_one_or_none()
 
     if not agent or not agent.api_key_hash:
@@ -340,7 +354,7 @@ def verify_agent(db: Session, agent_id: str) -> Optional[Agent]:
 
 
 def delete_agent(db: Session, agent_id: str) -> bool:
-    """删除代理
+    """删除代理（软删除）
 
     Args:
         db: 数据库会话
@@ -353,9 +367,14 @@ def delete_agent(db: Session, agent_id: str) -> bool:
         ValueError: 代理有关联数据无法删除
     """
     from ..models.db_models import Job, Bid, Message, Artifact
+    from datetime import datetime
 
     agent = get_agent(db, agent_id)
     if not agent:
+        return False
+
+    # 检查是否已删除
+    if agent.deleted:
         return False
 
     # 检查是否有关联数据（排除已删除的任务）
@@ -376,36 +395,68 @@ def delete_agent(db: Session, agent_id: str) -> bool:
             "请先处理相关数据。"
         )
 
-    # 获取已软删除的任务 ID 列表
-    deleted_job_ids = db.execute(
-        select(Job.job_id).where(
+    # 软删除：设置 deleted 标记和 deleted_at 时间戳
+    agent.deleted = True
+    agent.deleted_at = datetime.utcnow()
+    db.commit()
+    return True
+
+
+def restore_agent(db: Session, agent_id: str) -> bool:
+    """恢复已删除的代理（撤销软删除）
+
+    Args:
+        db: 数据库会话
+        agent_id: 代理ID
+
+    Returns:
+        是否恢复成功
+    """
+    from ..models.db_models import Job
+
+    # 查询包括已删除的 agent
+    agent = db.execute(
+        select(Agent).where(Agent.agent_id == agent_id)
+    ).scalar_one_or_none()
+
+    if not agent:
+        return False
+
+    if not agent.deleted:
+        return False  # 未删除的 agent 不需要恢复
+
+    # 恢复 agent
+    agent.deleted = False
+    agent.deleted_at = None
+
+    # 检查是否有已删除的任务需要恢复
+    deleted_jobs = db.execute(
+        select(Job).where(
             Job.employer_id == agent_id,
             Job.status == "DELETED"
         )
     ).scalars().all()
 
-    if deleted_job_ids:
-        # 按正确顺序删除关联数据
-        # 1. 删除 bids
-        db.execute(
-            Bid.__table__.delete().where(Bid.job_id.in_(deleted_job_ids))
-        )
-        # 2. 删除 messages
-        db.execute(
-            Message.__table__.delete().where(Message.job_id.in_(deleted_job_ids))
-        )
-        # 3. 删除 artifacts
-        db.execute(
-            Artifact.__table__.delete().where(Artifact.job_id.in_(deleted_job_ids))
-        )
-        # 4. 删除 jobs
-        db.execute(
-            Job.__table__.delete().where(Job.job_id.in_(deleted_job_ids))
-        )
+    # 恢复关联的任务
+    for job in deleted_jobs:
+        job.status = "OPEN"  # 恢复到 OPEN 状态
 
-    db.delete(agent)
     db.commit()
     return True
+
+
+def get_deleted_agents(db: Session) -> List[Agent]:
+    """获取所有已删除的代理
+
+    Args:
+        db: 数据库会话
+
+    Returns:
+        已删除的代理列表
+    """
+    return list(db.execute(
+        select(Agent).where(Agent.deleted == True)  # noqa: E712
+    ).scalars().all())
 
 
 def update_agent(db: Session, agent_id: str, name: Optional[str] = None,
@@ -659,7 +710,7 @@ def get_agents_by_owner(
     owner_id: str,
     agent_type: Optional[str] = None
 ) -> List[Agent]:
-    """获取用户拥有的所有 Agent
+    """获取用户拥有的所有 Agent（排除已删除的）
 
     Args:
         db: 数据库会话
@@ -669,7 +720,10 @@ def get_agents_by_owner(
     Returns:
         Agent 列表
     """
-    query = select(Agent).where(Agent.owner_id == owner_id)
+    query = select(Agent).where(
+        Agent.owner_id == owner_id,
+        Agent.deleted == False  # noqa: E712
+    )
 
     if agent_type:
         # Filter by agent_type: 'worker' or 'all' can accept jobs

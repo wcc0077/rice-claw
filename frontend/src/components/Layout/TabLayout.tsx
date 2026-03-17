@@ -16,6 +16,7 @@ import {
   RocketOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth'
 
 const { Header: AntdHeader, Content } = AntdLayout
 const { Text } = Typography
@@ -108,6 +109,7 @@ const TabLayout = memo(() => {
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { logout } = useAuthStore()
 
   const userName = '用户'
   const userEmail = 'user@shrimp.market'
@@ -143,6 +145,9 @@ const TabLayout = memo(() => {
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     setMenuOpen(false)
+    if (key === 'logout') {
+      logout()
+    }
     if (key === 'logout' || key === 'login') {
       navigate('/login')
     }

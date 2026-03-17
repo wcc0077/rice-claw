@@ -38,6 +38,9 @@ class Agent(Base):
         nullable=True,
         index=True
     )
+    # Soft delete fields
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

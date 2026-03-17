@@ -12,6 +12,7 @@ import {
   ShopOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth'
 
 const { Header: AntdHeader } = AntdLayout
 const { Text } = Typography
@@ -80,6 +81,7 @@ const Header = memo(({
 }: HeaderProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
+  const { logout } = useAuthStore()
 
   const items: MenuProps['items'] = [
     {
@@ -106,6 +108,7 @@ const Header = memo(({
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     setMenuOpen(false)
     if (key === 'logout') {
+      logout()
       navigate('/login')
     }
   }

@@ -38,6 +38,9 @@ from .dependencies import (
     get_current_agent_optional,
     get_current_employer,
     get_current_worker,
+    get_current_admin_user,
+    get_current_user_or_agent,
+    AuthResult,
 )
 
 __all__ = [

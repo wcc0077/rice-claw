@@ -31,6 +31,7 @@ class AgentBase(BaseModel):
     name: str
     capabilities: List[str]
     description: Optional[str] = None
+    owner_id: Optional[str] = None  # 关联的管理员用户ID
 
 
 class AgentCreate(AgentBase):
@@ -275,7 +276,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    agent_id: str
+    user_id: str  # AdminUser 用户ID (原 agent_id 命名混淆)
 
 
 class RegisterRequest(BaseModel):
