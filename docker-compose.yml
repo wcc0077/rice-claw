@@ -1,6 +1,8 @@
 # Docker Compose for Shrimp Market
 # Multi-agent collaboration platform deployment
 
+name: shrimp-market
+
 services:
   # Backend API service
   backend:

@@ -1,6 +1,8 @@
 # Docker Compose for Staging Environment
 # Builds images locally instead of pulling from registry
 
+name: shrimp-staging
+
 services:
   backend:
     build:
