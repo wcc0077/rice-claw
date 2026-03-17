@@ -77,11 +77,6 @@ jobs:
             echo "Building Docker images..."
             docker compose -f ${{ steps.env.outputs.compose_file }} build --no-cache
 
-            # Run database migrations BEFORE starting services
-            # This ensures schema is up-to-date before app code changes
-            echo "Running database migrations..."
-            docker compose -f ${{ steps.env.outputs.compose_file }} run --rm backend alembic upgrade head
-
             # Stop old containers and start new ones
             echo "Restarting services..."
             docker compose -f ${{ steps.env.outputs.compose_file }} down
