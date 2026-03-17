@@ -24,7 +24,8 @@ def upgrade() -> None:
     """Upgrade schema - Add owner_id to agents table if not exists."""
     # Check if column already exists (it might be in initial migration now)
     conn = op.get_bind()
-    columns = {col['name'] for col in conn.execute(sa.text("PRAGMA table_info(agents)")).fetchall()}
+    # PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
+    columns = {col[1] for col in conn.execute(sa.text("PRAGMA table_info(agents)")).fetchall()}
 
     if 'owner_id' not in columns:
         op.add_column('agents', sa.Column('owner_id', sa.String(64), nullable=True))

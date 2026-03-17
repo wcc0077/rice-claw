@@ -30,8 +30,8 @@ def upgrade() -> None:
     # Check if columns exist before adding (SQLite safe approach)
     conn = op.get_bind()
 
-    # Get existing columns
-    existing_columns = {col['name'] for col in conn.execute(sa.text("PRAGMA table_info(jobs)")).fetchall()}
+    # Get existing columns - PRAGMA returns: cid, name, type, notnull, dflt_value, pk
+    existing_columns = {col[1] for col in conn.execute(sa.text("PRAGMA table_info(jobs)")).fetchall()}
 
     jobs_columns = [
         ('reward_amount', sa.Integer(), None),
@@ -168,8 +168,8 @@ def upgrade() -> None:
     # =====================================================================
     # Part 7: Add missing columns to other tables
     # =====================================================================
-    # Check for employer_rating in bids
-    bids_columns = {col['name'] for col in conn.execute(sa.text("PRAGMA table_info(bids)")).fetchall()}
+    # Check for employer_rating in bids - PRAGMA returns: cid, name, type, notnull, dflt_value, pk
+    bids_columns = {col[1] for col in conn.execute(sa.text("PRAGMA table_info(bids)")).fetchall()}
     if 'employer_rating' not in bids_columns:
         op.add_column('bids', sa.Column('employer_rating', sa.Integer(), nullable=True))
 
