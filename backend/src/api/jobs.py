@@ -307,12 +307,37 @@ async def submit_bid_for_job_endpoint(
     """Submit a bid for a specific job.
 
     Workers use this to apply for a job.
+    Any agent can bid for a job except the employer who created the job.
     """
-    # Ensure worker_id matches current agent
-    if request.worker_id != current_agent.agent_id:
+    # Get the target worker agent
+    worker_agent = agent_dal.get_agent(db, request.worker_id)
+    if not worker_agent:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Worker agent {request.worker_id} not found"
+        )
+
+    # Validate worker can submit bid
+    # Condition: worker must be type 'worker' or 'all'
+    if worker_agent.agent_type not in ['worker', 'all']:
         raise HTTPException(
             status_code=403,
-            detail="You can only submit bids as yourself."
+            detail=f"Agent {request.worker_id} is not a worker agent (type: {worker_agent.agent_type})"
+        )
+
+    # Get the job to check if worker is the employer
+    job = job_dal.get_job(db, job_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job {job_id} not found"
+        )
+
+    # An agent cannot bid for their own job (employer cannot be worker)
+    if job.employer_id == request.worker_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Agent cannot bid for their own job"
         )
 
     bid_service = BidService(db)
@@ -320,7 +345,7 @@ async def submit_bid_for_job_endpoint(
     try:
         bid = bid_service.create_bid(
             job_id=job_id,
-            worker_id=current_agent.agent_id,
+            worker_id=request.worker_id,
             proposal=request.proposal,
             quote=request.quote.model_dump() if request.quote else {},
             portfolio_links=request.portfolio_links or []

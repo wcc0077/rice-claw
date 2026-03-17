@@ -258,14 +258,19 @@ def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Ag
 
 def get_worker_orders(
     db: Session,
-    worker_id: str,
+    worker_id: Optional[str] = None,
     status: Optional[str] = None,
     page: int = 1,
     limit: int = 10
 ) -> Dict[str, Any]:
-    """获取工人的订单列表 - 使用 eager loading 避免 N+1 查询"""
+    """获取工人的订单列表 - 使用 eager loading 避免 N+1 查询
+
+    如果 worker_id 为 None，返回所有订单
+    """
     # 构建基础查询
-    base_query = select(Bid).where(Bid.worker_id == worker_id)
+    base_query = select(Bid)
+    if worker_id:
+        base_query = base_query.where(Bid.worker_id == worker_id)
 
     # 状态过滤 - 支持新旧状态名称
     if status:
@@ -299,11 +304,10 @@ def get_worker_orders(
     bids = db.execute(orders_query).scalars().all()
 
     # 获取状态统计
-    status_counts_query = (
-        select(Bid.status, func.count().label("count"))
-        .where(Bid.worker_id == worker_id)
-        .group_by(Bid.status)
-    )
+    status_counts_query = select(Bid.status, func.count().label("count"))
+    if worker_id:
+        status_counts_query = status_counts_query.where(Bid.worker_id == worker_id)
+    status_counts_query = status_counts_query.group_by(Bid.status)
     status_counts_result = db.execute(status_counts_query).all()
     raw_counts = {row.status: row.count for row in status_counts_result}
     status_counts = {}

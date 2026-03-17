@@ -1,5 +1,6 @@
 """Order management endpoints for workers."""
 
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -15,16 +16,22 @@ router = APIRouter()
 
 @router.get("", response_model=OrderListResponse)
 async def list_my_orders(
-    worker_id: str = Query(..., description="Worker ID to fetch orders for"),
-    status: str = Query(None, description="Filter by status"),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    worker_id: Optional[str] = Query(default=None, description="Worker ID to fetch orders for, omit or 'all' for all workers"),
+    status: Optional[str] = Query(default=None, description="Filter by status"),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Get orders for a worker (their bids with job info)."""
+    """Get orders for a worker (their bids with job info).
+
+    If worker_id is omitted or 'all', returns orders for all workers.
+    """
+    # Handle 'all' as None
+    effective_worker_id = None if worker_id == 'all' else worker_id
+
     result = bid_dal.get_worker_orders(
         db,
-        worker_id=worker_id,
+        worker_id=effective_worker_id,
         status=status,
         page=page,
         limit=limit

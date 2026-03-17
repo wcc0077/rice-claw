@@ -11,9 +11,10 @@ import {
   FilterOutlined,
   ReloadOutlined,
   DeleteOutlined,
+  AimOutlined,
 } from '@ant-design/icons'
 import { Job } from '@/types/job'
-import { jobApi, agentApi } from '@/services/api'
+import { jobApi, agentApi, bidApi } from '@/services/api'
 import { Link } from 'react-router-dom'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
 
@@ -134,7 +135,10 @@ const JobListPage = () => {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [modalOpen, setModalOpen] = useState(false)
+  const [grabOrderModalOpen, setGrabOrderModalOpen] = useState(false)
+  const [selectedJobForGrab, setSelectedJobForGrab] = useState<string | null>(null)
   const [form] = Form.useForm()
+  const [grabForm] = Form.useForm()
   const [error, setError] = useState<string | null>(null)
   const [agents, setAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
 
@@ -144,6 +148,13 @@ const JobListPage = () => {
       fetchAgents()
     }
   }, [modalOpen])
+
+  // Fetch worker agents when grab order modal opens
+  useEffect(() => {
+    if (grabOrderModalOpen && selectedJobForGrab) {
+      fetchWorkerAgents()
+    }
+  }, [grabOrderModalOpen, selectedJobForGrab])
 
   const fetchAgents = async () => {
     try {
@@ -161,6 +172,25 @@ const JobListPage = () => {
     } catch (err) {
       console.error('Failed to fetch agents:', err)
       message.error('获取代理列表失败')
+    }
+  }
+
+  const fetchWorkerAgents = async () => {
+    try {
+      const res = await agentApi.list()
+      const agentList = res.data.agents || []
+      // Filter agents that can be workers (worker type or all type)
+      const workerAgents = agentList.filter(
+        (a: any) => a.agent_type === 'worker' || a.agent_type === 'all'
+      )
+      setAgents(workerAgents)
+      // Set default agent if there are agents available
+      if (workerAgents.length > 0 && !form.getFieldValue('worker_id')) {
+        form.setFieldValue('worker_id', workerAgents[0].agent_id)
+      }
+    } catch (err) {
+      console.error('Failed to fetch worker agents:', err)
+      message.error('获取 worker 代理列表失败')
     }
   }
 
@@ -190,6 +220,35 @@ const JobListPage = () => {
       message.error(errorMsg)
     }
   }, [fetchJobs])
+
+  const handleGrabOrder = () => {
+    grabForm.validateFields()
+      .then(async (values) => {
+        if (!selectedJobForGrab) return
+        try {
+          // Send worker_id, proposal and quote
+          await bidApi.create(selectedJobForGrab, {
+            worker_id: values.worker_id,
+            proposal: values.proposal,
+            quote: {
+              amount: values.quote_amount,
+              delivery_days: values.delivery_days,
+            },
+          })
+          message.success('接单成功')
+          setGrabOrderModalOpen(false)
+          setSelectedJobForGrab(null)
+          grabForm.resetFields()
+          fetchJobs()
+        } catch (error: any) {
+          const errorMsg = error?.response?.data?.detail || '接单失败'
+          message.error(errorMsg)
+        }
+      })
+      .catch(() => {
+        // Validation failed
+      })
+  }
 
   useAsyncEffect(fetchJobs, [fetchJobs])
 
@@ -253,6 +312,21 @@ const JobListPage = () => {
       width: 180,
       render: (_, record) => (
         <Space size="small">
+          {/* 接单按钮 - 仅当任务开放且竞标数小于限制时显示 */}
+          {record.status === 'OPEN' && (record.bid_count || 0) < (record.bid_limit || 5) && (
+            <Button
+              type="link"
+              size="small"
+              icon={<AimOutlined />}
+              className="text-emerald-400 hover:text-emerald-300"
+              onClick={() => {
+                setSelectedJobForGrab(record.job_id)
+                setGrabOrderModalOpen(true)
+              }}
+            >
+              接单
+            </Button>
+          )}
           <Link to={`/dashboard/jobs/${record.job_id}`}>
             <Button
               type="link"
@@ -527,6 +601,99 @@ const JobListPage = () => {
               className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0"
             >
               发布任务
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Grab Order Modal - Worker接单 */}
+      <Modal
+        title="接单"
+        open={grabOrderModalOpen}
+        onCancel={() => {
+          setGrabOrderModalOpen(false)
+          setSelectedJobForGrab(null)
+          grabForm.resetFields()
+        }}
+        maskClosable
+        keyboard
+        footer={null}
+        width={500}
+        className="dark-modal"
+      >
+        <Form
+          form={grabForm}
+          layout="vertical"
+          onFinish={handleGrabOrder}
+        >
+          <Form.Item
+            name="worker_id"
+            label="接单 Worker"
+            initialValue={agents[0]?.agent_id}
+            rules={[{ required: true, message: '请选择接单的 Worker' }]}
+          >
+            <Select
+              placeholder="选择接单的 Worker"
+              className="dark-select"
+              disabled={agents.length === 1}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={agents.map((agent) => ({
+                value: agent.agent_id,
+                label: `${agent.name} (${agent.agent_id})`,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="proposal"
+            label="接单方案"
+            rules={[{ required: true, message: '请输入接单方案' }]}
+          >
+            <Input.TextArea
+              rows={3}
+              placeholder="简要描述你将如何完成这个任务..."
+              className="bg-slate-800/50 border-slate-700 text-white"
+            />
+          </Form.Item>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item
+              name="quote_amount"
+              label="报价 (¥)"
+              rules={[{ required: true, message: '请输入报价' }]}
+            >
+              <InputNumber
+                prefix="¥"
+                min={0}
+                placeholder="1000"
+                className="w-full bg-slate-800/50"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="delivery_days"
+              label="交付天数"
+              rules={[{ required: true, message: '请输入交付天数' }]}
+            >
+              <InputNumber
+                min={1}
+                placeholder="7"
+                className="w-full bg-slate-800/50"
+              />
+            </Form.Item>
+          </div>
+
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              className="bg-gradient-to-r from-emerald-500 to-green-500 border-0"
+            >
+              确认接单
             </Button>
           </Form.Item>
         </Form>
