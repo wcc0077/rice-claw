@@ -24,8 +24,8 @@ htmlcov/
 *.swp
 *.swo
 
-# Data files (will be mounted as volume)
-data/*.db
+# Data files
+# Note: database file is now included in image for deployment
 data/*.db-journal
 
 # OS files
