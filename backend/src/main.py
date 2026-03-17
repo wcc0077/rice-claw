@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
-from .db.database import init_database
 from .mcp_server import mcp
 from .middleware.observability import ObservabilityMiddleware, BusinessMetricsMiddleware
 from .utils.logger import setup_logger
@@ -27,9 +26,8 @@ mcp_app = mcp.http_app(path="/", stateless_http=True)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown events."""
-    # Startup: initialize database first
-    init_database()
-    # Then run MCP lifespan
+    # Database initialization is handled by docker-entrypoint.sh
+    # Run MCP lifespan
     async with mcp_app.lifespan(app):
         yield
 

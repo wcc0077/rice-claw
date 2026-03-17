@@ -51,8 +51,7 @@ def get_db() -> Generator[Session, None, None]:
 def init_database():
     """初始化数据库（创建所有表）
 
-    用于开发环境快速初始化。
-    生产环境应使用 Alembic 迁移。
+    幂等操作：如果表已存在则跳过，不会覆盖数据。
     """
     from ..models.db_models import Base
 

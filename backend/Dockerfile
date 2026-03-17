@@ -16,8 +16,6 @@ WORKDIR /app
 
 # Copy dependency files first for better caching
 COPY pyproject.toml ./
-COPY alembic.ini ./
-COPY alembic/ ./alembic/
 
 # Install dependencies
 RUN uv pip install --system -e .
@@ -25,15 +23,18 @@ RUN uv pip install --system -e .
 # Copy application code
 COPY src/ ./src/
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+# Create directories
+RUN mkdir -p /app/data /app/init-data
+
+# Copy database template (used for RESET_DATA=true)
+COPY data/shrimp_market.db /app/init-data/
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Set default database path
 ENV DATABASE_PATH=/app/data/shrimp_market.db
-
-# Run database migrations using Alembic
-# This ensures all tables are created/upgraded before the app starts
-RUN alembic upgrade head
 
 # Expose port
 EXPOSE 8000
@@ -42,5 +43,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use entrypoint script
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -17,6 +17,8 @@ services:
     environment:
       # Database path (inside container)
       - DATABASE_PATH=/app/data/shrimp_market.db
+      # Reset database on each deployment (set to "true" for fresh start)
+      - RESET_DATA=true
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
