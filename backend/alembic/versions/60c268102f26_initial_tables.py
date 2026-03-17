@@ -18,10 +18,26 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def table_exists(table_name: str) -> bool:
+    """Check if a table exists in SQLite."""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+    )).fetchone()
+    return result is not None
+
+
+def create_table_if_not_exists(table_name: str, *columns, **kwargs):
+    """Create table only if it doesn't exist."""
+    if not table_exists(table_name):
+        op.create_table(table_name, *columns, **kwargs)
+
+
 def upgrade() -> None:
-    """Upgrade schema - Create all initial tables."""
+    """Upgrade schema - Create all initial tables (idempotent)."""
+
     # Create admin_users table
-    op.create_table(
+    create_table_if_not_exists(
         'admin_users',
         sa.Column('user_id', sa.String(64), nullable=False),
         sa.Column('username', sa.String(64), nullable=False),
@@ -37,7 +53,7 @@ def upgrade() -> None:
     )
 
     # Create agents table
-    op.create_table(
+    create_table_if_not_exists(
         'agents',
         sa.Column('agent_id', sa.String(64), nullable=False),
         sa.Column('agent_type', sa.String(16), server_default='all'),
@@ -62,11 +78,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('agent_id'),
         sa.ForeignKeyConstraint(['owner_id'], ['admin_users.user_id']),
     )
-    op.create_index('ix_agents_owner_id', 'agents', ['owner_id'])
-    op.create_index('ix_agents_api_key_id', 'agents', ['api_key_id'])
+    if not table_exists('agents'):
+        op.create_index('ix_agents_owner_id', 'agents', ['owner_id'])
+        op.create_index('ix_agents_api_key_id', 'agents', ['api_key_id'])
 
     # Create jobs table
-    op.create_table(
+    create_table_if_not_exists(
         'jobs',
         sa.Column('job_id', sa.String(64), nullable=False),
         sa.Column('employer_id', sa.String(64), nullable=False),
@@ -89,7 +106,7 @@ def upgrade() -> None:
     )
 
     # Create bids table
-    op.create_table(
+    create_table_if_not_exists(
         'bids',
         sa.Column('bid_id', sa.String(64), nullable=False),
         sa.Column('job_id', sa.String(64), nullable=False),
@@ -109,7 +126,7 @@ def upgrade() -> None:
     )
 
     # Create artifacts table
-    op.create_table(
+    create_table_if_not_exists(
         'artifacts',
         sa.Column('artifact_id', sa.String(64), nullable=False),
         sa.Column('job_id', sa.String(64), nullable=False),
@@ -126,7 +143,7 @@ def upgrade() -> None:
     )
 
     # Create messages table
-    op.create_table(
+    create_table_if_not_exists(
         'messages',
         sa.Column('message_id', sa.String(64), nullable=False),
         sa.Column('job_id', sa.String(64), nullable=False),
@@ -144,7 +161,7 @@ def upgrade() -> None:
     )
 
     # Create audit_logs table
-    op.create_table(
+    create_table_if_not_exists(
         'audit_logs',
         sa.Column('log_id', sa.String(64), nullable=False),
         sa.Column('agent_id', sa.String(64), nullable=True),
@@ -159,10 +176,11 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.PrimaryKeyConstraint('log_id'),
     )
-    op.create_index('ix_audit_logs_agent_id', 'audit_logs', ['agent_id'])
+    if not table_exists('audit_logs'):
+        op.create_index('ix_audit_logs_agent_id', 'audit_logs', ['agent_id'])
 
     # Create reputation_logs table
-    op.create_table(
+    create_table_if_not_exists(
         'reputation_logs',
         sa.Column('log_id', sa.String(64), nullable=False),
         sa.Column('agent_id', sa.String(64), nullable=False),
@@ -180,10 +198,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('log_id'),
         sa.ForeignKeyConstraint(['agent_id'], ['agents.agent_id']),
     )
-    op.create_index('ix_reputation_logs_agent_id', 'reputation_logs', ['agent_id'])
+    if not table_exists('reputation_logs'):
+        op.create_index('ix_reputation_logs_agent_id', 'reputation_logs', ['agent_id'])
 
     # Create sms_verification_codes table
-    op.create_table(
+    create_table_if_not_exists(
         'sms_verification_codes',
         sa.Column('code_id', sa.String(64), nullable=False),
         sa.Column('phone', sa.String(20), nullable=False),
@@ -195,10 +214,11 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.PrimaryKeyConstraint('code_id'),
     )
-    op.create_index('ix_sms_verification_codes_phone', 'sms_verification_codes', ['phone'])
+    if not table_exists('sms_verification_codes'):
+        op.create_index('ix_sms_verification_codes_phone', 'sms_verification_codes', ['phone'])
 
     # Create sms_rate_limits table
-    op.create_table(
+    create_table_if_not_exists(
         'sms_rate_limits',
         sa.Column('phone', sa.String(20), nullable=False),
         sa.Column('send_count', sa.Integer(), server_default='1'),
