@@ -8,8 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1
 
-# Install uv using official installer (faster and more reliable)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install curl and uv
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
