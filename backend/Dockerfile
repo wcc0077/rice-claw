@@ -6,12 +6,11 @@ FROM python:3.12-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 
-# Install curl and uv
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && rm -rf /var/lib/apt/lists/*
+# Install uv using pip with mirror
+RUN pip install --no-cache-dir uv
 
 # Set working directory
 WORKDIR /app
