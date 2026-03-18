@@ -54,7 +54,11 @@ class Agent(Base):
         back_populates="employer",
         foreign_keys="Job.employer_id"
     )
-    bids: Mapped[List["Bid"]] = relationship("Bid", back_populates="worker")
+    bids: Mapped[List["Bid"]] = relationship(
+        "Bid",
+        back_populates="worker",
+        primaryjoin="and_(Agent.agent_id == foreign(Bid.worker_id), Bid.deleted == False)"
+    )
     sent_messages: Mapped[List["Message"]] = relationship(
         "Message",
         back_populates="sender",
@@ -157,7 +161,11 @@ class Job(Base):
         back_populates="jobs_as_employer",
         foreign_keys=[employer_id]
     )
-    bids: Mapped[List["Bid"]] = relationship("Bid", back_populates="job")
+    bids: Mapped[List["Bid"]] = relationship(
+        "Bid",
+        back_populates="job",
+        primaryjoin="and_(Job.job_id == foreign(Bid.job_id), Bid.deleted == False)"
+    )
     messages: Mapped[List["Message"]] = relationship("Message", back_populates="job")
     artifacts: Mapped[List["Artifact"]] = relationship("Artifact", back_populates="job")
     workers: Mapped[List["JobWorker"]] = relationship(
@@ -221,6 +229,9 @@ class Bid(Base):
     # 声誉体系字段
     employer_rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 星
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    # 软删除字段
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # 关系
     job: Mapped["Job"] = relationship("Job", back_populates="bids")

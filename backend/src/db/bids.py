@@ -70,7 +70,7 @@ def create_bid(db: Session, bid_data: Dict[str, Any]) -> Bid:
 
 
 def get_bid(db: Session, bid_id: str) -> Optional[Bid]:
-    """获取单个竞标
+    """获取单个竞标（排除已删除）
 
     Args:
         db: 数据库会话
@@ -80,7 +80,7 @@ def get_bid(db: Session, bid_id: str) -> Optional[Bid]:
         竞标对象或 None
     """
     return db.execute(
-        select(Bid).where(Bid.bid_id == bid_id)
+        select(Bid).where(Bid.bid_id == bid_id, Bid.deleted == False)
     ).scalar_one_or_none()
 
 
@@ -90,6 +90,50 @@ def get_bid_dict(db: Session, bid_id: str) -> Optional[Dict[str, Any]]:
     if not bid:
         return None
     return bid.to_dict_with_quote()
+
+
+def get_bid_detail(db: Session, bid_id: str) -> Optional[Dict[str, Any]]:
+    """获取竞标详情（包含 Job 和 Worker 信息）
+
+    Args:
+        db: 数据库会话
+        bid_id: 竞标ID
+
+    Returns:
+        竞标详情字典或 None
+    """
+    bid = db.execute(
+        select(Bid)
+        .options(selectinload(Bid.job), selectinload(Bid.worker))
+        .where(Bid.bid_id == bid_id, Bid.deleted == False)
+    ).scalar_one_or_none()
+
+    if not bid:
+        return None
+
+    result = bid.to_dict_with_quote()
+
+    # 添加 Job 信息
+    if bid.job:
+        result["job"] = {
+            "job_id": bid.job.job_id,
+            "title": bid.job.title,
+            "description": bid.job.description,
+            "status": bid.job.status,
+            "employer_id": bid.job.employer_id,
+            "reward_amount": bid.job.reward_amount,
+        }
+
+    # 添加 Worker 信息
+    if bid.worker:
+        result["worker"] = {
+            "agent_id": bid.worker.agent_id,
+            "name": bid.worker.name,
+            "rating": float(bid.worker.rating) if bid.worker.rating else 0.0,
+            "completed_jobs": bid.worker.completed_jobs,
+        }
+
+    return result
 
 
 def get_bids_by_worker(db: Session, worker_id: str) -> List[Dict[str, Any]]:
@@ -112,10 +156,10 @@ def get_bids_by_worker(db: Session, worker_id: str) -> List[Dict[str, Any]]:
 
 
 def get_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
-    """获取任务的所有竞标"""
+    """获取任务的所有竞标（排除已删除）"""
     bids = db.execute(
         select(Bid)
-        .where(Bid.job_id == job_id)
+        .where(Bid.job_id == job_id, Bid.deleted == False)
         .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
     ).scalars().all()
 
@@ -123,11 +167,11 @@ def get_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
 
 
 def get_bids_with_worker_info(db: Session, job_id: str) -> List[Dict[str, Any]]:
-    """获取任务的竞标（包含工人信息）- 使用 eager loading 避免 N+1 查询"""
+    """获取任务的竞标（包含工人信息，排除已删除）- 使用 eager loading 避免 N+1 查询"""
     bids = db.execute(
         select(Bid)
         .options(selectinload(Bid.worker))
-        .where(Bid.job_id == job_id)
+        .where(Bid.job_id == job_id, Bid.deleted == False)
         .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
     ).scalars().all()
 
@@ -242,6 +286,7 @@ def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Ag
     return {
         "bid_id": bid.bid_id,
         "job_id": bid.job_id,
+        "worker_id": bid.worker_id,
         "job_title": job.title if job else "Unknown Job",
         "job_description": job.description if job else None,
         "employer_id": job.employer_id if job else None,
@@ -267,8 +312,8 @@ def get_worker_orders(
 
     如果 worker_id 为 None，返回所有订单
     """
-    # 构建基础查询
-    base_query = select(Bid)
+    # 构建基础查询 - 过滤已删除的记录
+    base_query = select(Bid).where(Bid.deleted == False)
     if worker_id:
         base_query = base_query.where(Bid.worker_id == worker_id)
 
@@ -363,7 +408,7 @@ def get_order_detail(db: Session, bid_id: str, worker_id: str) -> Optional[Dict[
     bid = db.execute(
         select(Bid)
         .options(selectinload(Bid.job).selectinload(Job.employer))
-        .where(Bid.bid_id == bid_id, Bid.worker_id == worker_id)
+        .where(Bid.bid_id == bid_id, Bid.worker_id == worker_id, Bid.deleted == False)
     ).scalar_one_or_none()
 
     if not bid:
@@ -395,3 +440,52 @@ def update_bid_employer_rating(
     db.commit()
     db.refresh(bid)
     return bid
+
+
+def soft_delete_bid(db: Session, bid_id: str, worker_id: str) -> Optional[Bid]:
+    """软删除竞标
+
+    Args:
+        db: 数据库会话
+        bid_id: 竞标 ID
+        worker_id: 工人 ID (用于权限验证)
+
+    Returns:
+        更新后的竞标对象或 None
+    """
+    bid = db.execute(
+        select(Bid).where(
+            Bid.bid_id == bid_id,
+            Bid.worker_id == worker_id,
+            Bid.deleted == False
+        )
+    ).scalar_one_or_none()
+
+    if not bid:
+        return None
+
+    bid.deleted = True
+    bid.deleted_at = datetime.utcnow()
+    db.commit()
+    db.refresh(bid)
+    return bid
+
+
+def get_active_bid_for_worker(db: Session, worker_id: str) -> Optional[Bid]:
+    """Get active bid for a worker (pending selection or in-progress).
+
+    Used for single-task constraint check.
+
+    Args:
+        db: Database session
+        worker_id: Worker's agent ID
+
+    Returns:
+        Active Bid if exists, None otherwise
+    """
+    return db.execute(
+        select(Bid)
+        .where(Bid.worker_id == worker_id)
+        .where(Bid.status.in_(["BIDDING", "PENDING", "SELECTED", "ACCEPTED", "IN_PROGRESS"]))
+        .where(Bid.deleted == False)
+    ).scalar_one_or_none()

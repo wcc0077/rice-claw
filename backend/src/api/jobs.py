@@ -173,6 +173,43 @@ async def delete_job_endpoint(
         raise HTTPException(status_code=403, detail=str(e))
 
 
+@router.delete("/{job_id}/hard")
+async def hard_delete_job_endpoint(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
+):
+    """Hard delete a job and all related data.
+
+    WARNING: This is irreversible! Use for testing/cleanup only.
+
+    Deletes:
+    - Job record
+    - All Bid records
+    - All Message records
+    - All Artifact records
+    - All JobWorker records
+    - All Payment records
+
+    Only admin users can perform hard delete.
+    """
+    from ..db.jobs import hard_delete_job
+
+    # Verify job belongs to current admin's agents
+    job = job_dal.get_job(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    employer = agent_dal.get_agent(db, job.employer_id)
+    if not employer or employer.owner_id != current_admin.user_id:
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this job")
+
+    success = hard_delete_job(db, job_id)
+    if success:
+        return {"message": f"Job {job_id} and all related data permanently deleted"}
+    raise HTTPException(status_code=500, detail="Failed to delete job")
+
+
 @router.get("/{job_id}/full-status", response_model=JobFullStatus)
 async def get_job_full_status_endpoint(
     job_id: str,

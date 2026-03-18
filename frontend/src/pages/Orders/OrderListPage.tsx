@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useEffect } from 'react'
-import { Card, Tabs, Typography, Button, message, Empty, Spin, Badge, Select } from 'antd'
+import { Card, Tabs, Typography, Button, message, Empty, Spin, Badge, Select, Popconfirm } from 'antd'
 import type { TabsProps } from 'antd'
 import {
   ThunderboltOutlined,
@@ -14,6 +14,7 @@ import {
   DollarOutlined,
   CalendarOutlined,
   FileTextOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import { orderApi, agentApi } from '@/services/api'
 import { useAsyncEffect } from '@/hooks/useFetchOnce'
@@ -115,6 +116,7 @@ const ORDER_STATUS: Record<string, {
 interface Order {
   bid_id: string
   job_id: string
+  worker_id: string
   job_title: string
   job_description?: string
   employer_id: string
@@ -163,7 +165,11 @@ StatusTag.displayName = 'StatusTag'
 /**
  * OrderCard - 精细的订单卡片
  */
-const OrderCard = memo(({ order, onAction }: { order: Order; onAction?: (order: Order, action: string) => void }) => {
+const OrderCard = memo(({ order, onAction, onDelete }: {
+  order: Order;
+  onAction?: (order: Order, action: string) => void;
+  onDelete?: (order: Order) => void;
+}) => {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString('zh-CN', {
@@ -252,9 +258,9 @@ const OrderCard = memo(({ order, onAction }: { order: Order; onAction?: (order: 
       )}
 
       {/* Actions */}
-      {(order.status === 'SELECTED' || order.status === 'IN_PROGRESS' ||
-        order.status === 'BIDDING') && (
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-700/30">
+      <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-700/30">
+        {/* 状态操作按钮 */}
+        <div className="flex items-center gap-2">
           {order.status === 'SELECTED' && (
             <Button
               type="primary"
@@ -287,7 +293,23 @@ const OrderCard = memo(({ order, onAction }: { order: Order; onAction?: (order: 
             </Button>
           )}
         </div>
-      )}
+        {/* 删除按钮 - 所有状态都可删除 */}
+        <Popconfirm
+          title="确认删除"
+          description="删除后无法恢复，确定要删除此订单吗？"
+          onConfirm={() => onDelete?.(order)}
+          okText="确认"
+          cancelText="取消"
+          okButtonProps={{ danger: true }}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<DeleteOutlined />}
+            className="text-slate-500 hover:text-rose-400 hover:bg-rose-500/10"
+          />
+        </Popconfirm>
+      </div>
     </Card>
   )
 })
@@ -383,7 +405,6 @@ const OrderListPage = () => {
   }, [activeTab, selectedWorkerId, fetchOrders])
 
   const handleOrderAction = useCallback(async (order: Order, action: string) => {
-    if (!selectedWorkerId) return
     try {
       let newStatus: string
       switch (action) {
@@ -400,14 +421,26 @@ const OrderListPage = () => {
           return
       }
 
-      await orderApi.updateStatus(order.bid_id, selectedWorkerId, newStatus)
+      // Use the order's worker_id instead of selectedWorkerId
+      await orderApi.updateStatus(order.bid_id, order.worker_id, newStatus)
       message.success('状态更新成功')
       fetchOrders(activeTab === 'all' ? undefined : activeTab)
     } catch (err) {
       console.error('Failed to update order:', err)
       message.error('更新失败')
     }
-  }, [selectedWorkerId, activeTab, fetchOrders])
+  }, [activeTab, fetchOrders])
+
+  const handleDelete = useCallback(async (order: Order) => {
+    try {
+      await orderApi.delete(order.bid_id, order.worker_id)
+      message.success('删除成功')
+      fetchOrders(activeTab === 'all' ? undefined : activeTab)
+    } catch (err) {
+      console.error('Failed to delete order:', err)
+      message.error('删除失败')
+    }
+  }, [activeTab, fetchOrders])
 
   const totalCount = statusCounts ? Object.values(statusCounts).reduce((a, b) => a + b, 0) : 0
 
@@ -557,6 +590,7 @@ const OrderListPage = () => {
                     key={order.bid_id}
                     order={order}
                     onAction={handleOrderAction}
+                    onDelete={handleDelete}
                   />
                 ))}
               </div>

@@ -101,10 +101,10 @@ def list_jobs(
     """
     from ..models.db_models import Agent
 
-    # 构建查询（带竞标数统计）
+    # 构建查询（带竞标数统计，排除已删除的 bid）
     query = (
         select(Job, func.count(Bid.bid_id).label("bid_count"))
-        .outerjoin(Bid, Job.job_id == Bid.job_id)
+        .outerjoin(Bid, (Job.job_id == Bid.job_id) & (Bid.deleted == False))
         .where(Job.status != "DELETED")
     )
     count_query = select(func.count()).select_from(Job).where(Job.status != "DELETED")
@@ -236,8 +236,57 @@ def delete_job(db: Session, job_id: str) -> bool:
     return True
 
 
+def hard_delete_job(db: Session, job_id: str) -> bool:
+    """物理删除任务及其所有关联数据
+
+    警告：此操作不可逆！用于测试环境清理数据。
+
+    删除内容：
+    - Job 记录
+    - 所有 Bid 记录
+    - 所有 Message 记录
+    - 所有 Artifact 记录
+    - 所有 JobWorker 记录
+    - 所有 Payment 记录
+
+    Args:
+        db: 数据库会话
+        job_id: 任务ID
+
+    Returns:
+        是否删除成功
+    """
+    from ..models.db_models import Message, Artifact, JobWorker, Payment
+
+    job = get_job(db, job_id)
+    if not job:
+        return False
+
+    # 删除关联数据（按依赖顺序）
+    # 1. 删除 Payments
+    db.query(Payment).filter(Payment.job_id == job_id).delete()
+
+    # 2. 删除 JobWorkers
+    db.query(JobWorker).filter(JobWorker.job_id == job_id).delete()
+
+    # 3. 删除 Artifacts
+    db.query(Artifact).filter(Artifact.job_id == job_id).delete()
+
+    # 4. 删除 Messages
+    db.query(Message).filter(Message.job_id == job_id).delete()
+
+    # 5. 删除 Bids
+    db.query(Bid).filter(Bid.job_id == job_id).delete()
+
+    # 6. 最后删除 Job
+    db.delete(job)
+
+    db.commit()
+    return True
+
+
 def count_job_bids(db: Session, job_id: str) -> int:
-    """统计任务竞标数
+    """统计任务竞标数（排除已删除）
 
     Args:
         db: 数据库会话
@@ -247,7 +296,7 @@ def count_job_bids(db: Session, job_id: str) -> int:
         竞标数量
     """
     return db.execute(
-        select(func.count()).where(Bid.job_id == job_id)
+        select(func.count()).where(Bid.job_id == job_id, Bid.deleted == False)
     ).scalar() or 0
 
 
@@ -311,3 +360,22 @@ def row_to_job(row) -> Dict[str, Any]:
         "closed_at": row["closed_at"],
         "bid_count": row["bid_count"] if "bid_count" in row.keys() else 0,
     }
+
+
+def get_active_job_for_employer(db: Session, employer_id: str) -> Optional[Job]:
+    """Get active job for an employer (OPEN, ACTIVE, or REVIEW status).
+
+    Used for single-task constraint check.
+
+    Args:
+        db: Database session
+        employer_id: Employer's agent ID
+
+    Returns:
+        Active Job if exists, None otherwise
+    """
+    return db.execute(
+        select(Job)
+        .where(Job.employer_id == employer_id)
+        .where(Job.status.in_(["OPEN", "ACTIVE", "REVIEW"]))
+    ).scalar_one_or_none()

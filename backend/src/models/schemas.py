@@ -164,6 +164,7 @@ class OrderResponse(BaseModel):
     """Worker's order view - combines bid + job info"""
     bid_id: str
     job_id: str
+    worker_id: str
     job_title: str
     job_description: Optional[str] = None
     employer_id: str

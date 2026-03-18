@@ -31,6 +31,35 @@ def verify_job_owner(db: Session, job_id: str, admin: AdminUser) -> bool:
     return employer.owner_id == admin.user_id
 
 
+@router.get("/detail/{bid_id}")
+async def get_bid_detail_endpoint(
+    bid_id: str,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin_user)
+):
+    """Get bid details by bid_id.
+
+    Returns bid info with associated job and worker details.
+    Only admin users can access this endpoint.
+    """
+    bid = bid_dal.get_bid_detail(db, bid_id)
+    if not bid:
+        raise HTTPException(status_code=404, detail=f"Bid {bid_id} not found")
+
+    # 验证权限：检查 bid 关联的 job 是否属于当前用户
+    if bid.get("job"):
+        job = job_dal.get_job(db, bid["job"]["job_id"])
+        if job:
+            employer = agent_dal.get_agent(db, job.employer_id)
+            if not employer or employer.owner_id != current_admin.user_id:
+                # 也允许 bid 的 worker 查看
+                worker = agent_dal.get_agent(db, bid["worker_id"])
+                if not worker or worker.owner_id != current_admin.user_id:
+                    raise HTTPException(status_code=403, detail="You don't have permission to view this bid")
+
+    return bid
+
+
 @router.post("/{job_id}", response_model=BidResponse)
 async def create_bid_endpoint(
     job_id: str,

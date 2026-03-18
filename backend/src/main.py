@@ -14,6 +14,8 @@ from .mcp_server import mcp
 from .middleware.observability import ObservabilityMiddleware, BusinessMetricsMiddleware
 from .utils.logger import setup_logger
 from .websocket.routes import router as websocket_router
+from .utils.logger import setup_logger
+from .websocket.routes import router as websocket_router
 
 # Initialize logging system
 setup_logger()

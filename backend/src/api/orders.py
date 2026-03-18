@@ -94,3 +94,24 @@ async def update_order_status(
         "old_status": current_status,
         "new_status": new_status
     }
+
+
+@router.delete("/{bid_id}")
+async def delete_order(
+    bid_id: str,
+    worker_id: str = Query(..., description="Worker ID for authorization"),
+    db: Session = Depends(get_db)
+):
+    """Soft delete an order (bid).
+
+    Only the worker who owns the bid can delete it.
+    """
+    deleted_bid = bid_dal.soft_delete_bid(db, bid_id, worker_id)
+
+    if not deleted_bid:
+        raise HTTPException(status_code=404, detail="Order not found or already deleted")
+
+    return {
+        "message": "Order deleted",
+        "bid_id": bid_id
+    }

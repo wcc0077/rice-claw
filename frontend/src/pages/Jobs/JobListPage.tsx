@@ -140,12 +140,15 @@ const JobListPage = () => {
   const [form] = Form.useForm()
   const [grabForm] = Form.useForm()
   const [error, setError] = useState<string | null>(null)
-  const [agents, setAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
+  // 雇主代理列表（发布任务用）
+  const [employerAgents, setEmployerAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
+  // 工人代理列表（接单用）
+  const [workerAgents, setWorkerAgents] = useState<Array<{ agent_id: string; name: string; agent_type: string }>>([])
 
   // Fetch user's agents when modal opens
   useEffect(() => {
     if (modalOpen) {
-      fetchAgents()
+      fetchEmployerAgents()
     }
   }, [modalOpen])
 
@@ -156,18 +159,18 @@ const JobListPage = () => {
     }
   }, [grabOrderModalOpen, selectedJobForGrab])
 
-  const fetchAgents = async () => {
+  const fetchEmployerAgents = async () => {
     try {
       const res = await agentApi.list()
       const agentList = res.data.agents || []
       // Filter agents that can be employers (employer type or all type)
-      const employerAgents = agentList.filter(
+      const employers = agentList.filter(
         (a: any) => a.agent_type === 'employer' || a.agent_type === 'all'
       )
-      setAgents(employerAgents)
+      setEmployerAgents(employers)
       // Set default agent if form value not set and there are agents available
-      if (employerAgents.length > 0 && !form.getFieldValue('employer_id')) {
-        form.setFieldValue('employer_id', employerAgents[0].agent_id)
+      if (employers.length > 0 && !form.getFieldValue('employer_id')) {
+        form.setFieldValue('employer_id', employers[0].agent_id)
       }
     } catch (err) {
       console.error('Failed to fetch agents:', err)
@@ -180,13 +183,13 @@ const JobListPage = () => {
       const res = await agentApi.list()
       const agentList = res.data.agents || []
       // Filter agents that can be workers (worker type or all type)
-      const workerAgents = agentList.filter(
+      const workers = agentList.filter(
         (a: any) => a.agent_type === 'worker' || a.agent_type === 'all'
       )
-      setAgents(workerAgents)
+      setWorkerAgents(workers)
       // Set default agent if there are agents available
-      if (workerAgents.length > 0 && !form.getFieldValue('worker_id')) {
-        form.setFieldValue('worker_id', workerAgents[0].agent_id)
+      if (workers.length > 0 && !grabForm.getFieldValue('worker_id')) {
+        grabForm.setFieldValue('worker_id', workers[0].agent_id)
       }
     } catch (err) {
       console.error('Failed to fetch worker agents:', err)
@@ -211,8 +214,8 @@ const JobListPage = () => {
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     try {
-      await jobApi.delete(jobId)
-      message.success('任务已删除')
+      await jobApi.hardDelete(jobId)
+      message.success('任务已永久删除')
       fetchJobs()
     } catch (err: any) {
       console.error('Failed to delete job:', err)
@@ -337,26 +340,24 @@ const JobListPage = () => {
               查看
             </Button>
           </Link>
-          {/* OPEN 或 CLOSED 状态可以删除 */}
-          {(record.status === 'OPEN' || record.status === 'CLOSED') && (
-            <Popconfirm
-              title="确认删除任务"
-              description="删除后将无法恢复，确定要删除此任务吗？"
-              onConfirm={() => handleDeleteJob(record.job_id)}
-              okText="确认删除"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
+          {/* 所有状态都可以物理删除（用于测试清理） */}
+          <Popconfirm
+            title="永久删除任务"
+            description="此操作将删除任务及所有相关数据（竞标、消息等），且不可恢复！"
+            onConfirm={() => handleDeleteJob(record.job_id)}
+            okText="确认删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="link"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
             >
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-              >
-                删除
-              </Button>
-            </Popconfirm>
-          )}
+              删除
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -522,7 +523,7 @@ const JobListPage = () => {
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={agents.map((agent) => ({
+              options={employerAgents.map((agent) => ({
                 value: agent.agent_id,
                 label: `${agent.name} (${agent.agent_id})`,
               }))}
@@ -629,18 +630,16 @@ const JobListPage = () => {
           <Form.Item
             name="worker_id"
             label="接单 Worker"
-            initialValue={agents[0]?.agent_id}
             rules={[{ required: true, message: '请选择接单的 Worker' }]}
           >
             <Select
               placeholder="选择接单的 Worker"
               className="dark-select"
-              disabled={agents.length === 1}
               showSearch
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={agents.map((agent) => ({
+              options={workerAgents.map((agent) => ({
                 value: agent.agent_id,
                 label: `${agent.name} (${agent.agent_id})`,
               }))}

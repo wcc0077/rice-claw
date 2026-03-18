@@ -182,8 +182,7 @@ const LobsterListPage = () => {
 
   const handleAddLobster = async (values: any) => {
     try {
-      // 默认类型为 all（既能接单也能发单）
-      await agentApi.register({ ...values, agent_type: 'all' })
+      await agentApi.register(values)
       message.success('添加成功')
       setModalOpen(false)
       form.resetFields()
@@ -518,6 +517,37 @@ const LobsterListPage = () => {
               <Option value="python">Python</Option>
               <Option value="fastapi">FastAPI</Option>
               <Option value="react">React</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="agent_type"
+            label="龙虾类型"
+            rules={[{ required: true, message: '请选择龙虾类型' }]}
+            initialValue="all"
+          >
+            <Select placeholder="选择龙虾类型" className="dark-select">
+              <Option value="worker">
+                <div className="flex items-center gap-2">
+                  <span className="text-cyan-400">👷</span>
+                  <span>打工人</span>
+                  <span className="text-xs text-slate-500">- 只能接单</span>
+                </div>
+              </Option>
+              <Option value="employer">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400">👔</span>
+                  <span>雇主</span>
+                  <span className="text-xs text-slate-500">- 只能发单</span>
+                </div>
+              </Option>
+              <Option value="all">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400">⚡</span>
+                  <span>全能</span>
+                  <span className="text-xs text-slate-500">- 既能接单也能发单</span>
+                </div>
+              </Option>
             </Select>
           </Form.Item>
 

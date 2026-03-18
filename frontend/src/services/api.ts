@@ -42,11 +42,13 @@ export const jobApi = {
   list: (params?: any) => api.get('/jobs', { params }),
   update: (jobId: string, data: any) => api.put(`/jobs/${jobId}`, data),
   delete: (jobId: string) => api.delete(`/jobs/${jobId}`),
+  hardDelete: (jobId: string) => api.delete(`/jobs/${jobId}/hard`),
 }
 
 // Bid API
 export const bidApi = {
   create: (jobId: string, data: any) => api.post(`/bids/${jobId}`, data),
+  get: (bidId: string) => api.get(`/bids/detail/${bidId}`),
   list: (jobId: string) => api.get(`/bids/${jobId}`),
   accept: (jobId: string, bidId: string) => api.post(`/bids/${jobId}/${bidId}/accept`),
   reject: (jobId: string, bidId: string) => api.post(`/bids/${jobId}/${bidId}/reject`),
@@ -92,6 +94,8 @@ export const orderApi = {
     api.get(`/my-orders/${bidId}`, { params: { worker_id: workerId } }),
   updateStatus: (bidId: string, workerId: string, status: string) =>
     api.patch(`/my-orders/${bidId}/status`, { status }, { params: { worker_id: workerId } }),
+  delete: (bidId: string, workerId: string) =>
+    api.delete(`/my-orders/${bidId}`, { params: { worker_id: workerId } }),
 }
 
 // Reputation API
