@@ -14,14 +14,16 @@ const CRON_NAME = 'shrimp-market-monitor';
 
 module.exports = {
   register(api) {
-    const { serverUrl, apiKey } = api.config || {};
+    // const { serverUrl, apiKey } = api.config || {};
+    const pluginConfig = api.pluginConfig || {};
+    const { serverUrl, apiKey } = pluginConfig;
 
     if (!apiKey) {
       api.logger.warn('Shrimp Market: apiKey not configured');
       return;
     }
 
-    const baseUrl = serverUrl || 'http://localhost:8000/mcp/';
+    const baseUrl = serverUrl || 'http://44b08bf2.r31.cpolar.top/mcp/';
 
     // ============ MCP 调用 ============
     async function callMcp(toolName, args) {
@@ -192,32 +194,51 @@ async function setupCronJob(api, apiKey, baseUrl) {
 
   const cronMessage = buildCronMessage(agentType, scriptPath, apiKey);
 
-  // 检查是否已存在
-  exec('openclaw cron list --json', (error, stdout, stderr) => {
-    if (error) {
-      api.logger.warn('Shrimp Market: Failed to list cron jobs:', error.message);
-      return;
-    }
+  try {
+    await setupCronJobWithMessage(api, cronMessage);
+  } catch (err) {
+    api.logger.error(`Shrimp Market: Cron job setup failed: ${err.message}`);
+  }
+}
 
-    try {
-      const result = JSON.parse(stdout);
-      const jobs = result.jobs || [];
-      const existing = jobs.find(job => job.name === CRON_NAME || job.id === CRON_NAME);
-
-      if (existing) {
-        api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' exists, deleting and recreating...`);
-        exec(`openclaw cron rm ${CRON_NAME}`, (rmError) => {
-          if (rmError) {
-            api.logger.warn('Shrimp Market: Failed to delete old cron job:', rmError.message);
-          }
-          createCronJob(api, cronMessage);
-        });
-      } else {
+/**
+ * 设置 Cron Job（内部函数）
+ */
+async function setupCronJobWithMessage(api, cronMessage) {
+  return new Promise((resolve) => {
+    exec('openclaw cron list --json', (error, stdout, stderr) => {
+      if (error) {
+        api.logger.warn('Shrimp Market: Failed to list cron jobs:', error.message);
+        // 即使列出失败，也尝试创建
         createCronJob(api, cronMessage);
+        resolve();
+        return;
       }
-    } catch (e) {
-      api.logger.warn('Shrimp Market: Failed to parse cron list:', e.message);
-    }
+
+      try {
+        const result = JSON.parse(stdout);
+        const jobs = result.jobs || [];
+        const existing = jobs.find(job => job.name === CRON_NAME || job.id === CRON_NAME);
+
+        if (existing) {
+          api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' exists, deleting and recreating...`);
+          exec(`openclaw cron rm ${CRON_NAME}`, (rmError) => {
+            if (rmError) {
+              api.logger.warn('Shrimp Market: Failed to delete old cron job:', rmError.message);
+            }
+            createCronJob(api, cronMessage);
+            resolve();
+          });
+        } else {
+          createCronJob(api, cronMessage);
+          resolve();
+        }
+      } catch (e) {
+        api.logger.warn('Shrimp Market: Failed to parse cron list:', e.message);
+        createCronJob(api, cronMessage);
+        resolve();
+      }
+    });
   });
 }
 
@@ -233,21 +254,25 @@ function createCronJob(api, cronMessage) {
 
   api.logger.info(`Shrimp Market: Creating cron job '${CRON_NAME}'...`);
 
-  const child = spawn('openclaw', args, {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
+  try {
+    const child = spawn('openclaw', args, {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
 
-  child.on('error', (err) => {
-    api.logger.error('Shrimp Market: Failed to create cron job:', err.message);
-  });
+    child.on('error', (err) => {
+      api.logger.error('Shrimp Market: Failed to create cron job:', err.message);
+    });
 
-  child.on('close', (code) => {
-    if (code === 0) {
-      api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' created successfully`);
-    } else {
-      api.logger.warn(`Shrimp Market: Cron job creation exited with code ${code}`);
-    }
-  });
+    child.on('close', (code) => {
+      if (code === 0) {
+        api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' created successfully`);
+      } else {
+        api.logger.warn(`Shrimp Market: Cron job creation exited with code ${code}`);
+      }
+    });
+  } catch (err) {
+    api.logger.error(`Shrimp Market: spawn failed: ${err.message}`);
+  }
 }

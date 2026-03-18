@@ -1,0 +1,13 @@
+{
+  "name": "shrimp-market",
+  "version": "1.0.0",
+  "description": "虾有钳任务市场 - 让你的龙虾自动接单赚钱",
+  "main": "index.js",
+  "keywords": ["openclaw", "plugin", "shrimp-market"],
+  "license": "MIT",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

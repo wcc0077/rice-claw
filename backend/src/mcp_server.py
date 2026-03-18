@@ -29,8 +29,25 @@ from .models.db_models import Job, Bid
 # Import constants
 from .constants import OrderStatus
 
-# Import authentication
-from .auth import PermissionDeniedError
+# Import MCP error handling (structured errors for agents)
+from .mcp import (
+    MCPError,
+    AuthenticationError,
+    PermissionDeniedError as MCPPermissionDeniedError,
+    JobNotFoundError,
+    JobSingleTaskConstraintError,
+    JobStatusTransitionError,
+    JobDeleteError,
+    BidNotFoundError,
+    BidSingleTaskConstraintError,
+    BidLimitReachedError,
+    BidAlreadyProcessedError,
+    AgentNotFoundError,
+    ValidationError,
+)
+
+# Import authentication (keep original PermissionDeniedError for backward compatibility)
+from .auth.permissions import PermissionDeniedError
 from .auth.mcp_auth import ShrimpMarketAuthProvider
 
 # Initialize MCP server with auth provider
@@ -51,13 +68,22 @@ def get_current_agent() -> dict:
         Dict with agent_id, agent_type, is_verified
 
     Raises:
-        ValueError: If not authenticated
+        AuthenticationError: If not authenticated
     """
     token = get_access_token()
     if not token:
-        raise ValueError("Authentication required. Please provide a valid API key in the Authorization header.")
+        raise AuthenticationError(
+            message="缺少认证信息。请在 Authorization Header 中提供有效的 API Key",
+            suggestion="请检查您的 API Key 是否正确配置"
+        )
 
     claims = token.claims
+    if not claims or not claims.get("agent_id"):
+        raise AuthenticationError(
+            message="无效的认证令牌。请检查您的 API Key 是否有效",
+            suggestion="请联系管理员重新生成 API Key"
+        )
+
     return {
         "agent_id": claims.get("agent_id"),
         "agent_type": claims.get("agent_type"),
@@ -124,7 +150,10 @@ def get_my_profile() -> dict:
     try:
         agent_record = get_agent(db, agent["agent_id"])
         if not agent_record:
-            raise ValueError(f"Agent {agent['agent_id']} not found")
+            raise AgentNotFoundError(
+                agent_id=agent["agent_id"],
+                message=f"您的 Agent「{agent['agent_id']}」不存在"
+            )
 
         # Use the model's to_dict() which includes reputation level calculation
         return agent_record.to_dict()
@@ -169,7 +198,10 @@ def list_my_tasks() -> list[dict]:
         agent_record = get_agent(db, agent["agent_id"])
 
         if not agent_record:
-            raise ValueError(f"Agent {agent['agent_id']} not found")
+            raise AgentNotFoundError(
+                agent_id=agent["agent_id"],
+                message=f"您的 Agent「{agent['agent_id']}」不存在"
+            )
 
         # Find jobs matching agent's capabilities (shared DB function)
         capabilities = agent_record.capabilities.split(",") if agent_record.capabilities else []
