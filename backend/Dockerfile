@@ -8,8 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1
 
-# Install uv using pip to avoid ghcr.io access issues
-RUN pip install uv
+# Install uv using official installer (faster and more reliable)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,8 @@ WORKDIR /app
 # Copy dependency files first for better caching
 COPY pyproject.toml ./
 
-# Install dependencies
+# Install dependencies using uv with PyPI mirror
+ENV UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 RUN uv pip install --system -e .
 
 # Copy application code
