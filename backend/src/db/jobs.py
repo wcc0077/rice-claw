@@ -131,6 +131,9 @@ def list_jobs(
     # 分组（用于竞标数统计）
     query = query.group_by(Job.job_id)
 
+    # 按创建时间倒序排列
+    query = query.order_by(Job.created_at.desc())
+
     # 获取总数
     total = db.execute(count_query).scalar()
 

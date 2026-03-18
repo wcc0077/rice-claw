@@ -160,7 +160,7 @@ def get_bids_for_job(db: Session, job_id: str) -> List[Dict[str, Any]]:
     bids = db.execute(
         select(Bid)
         .where(Bid.job_id == job_id, Bid.deleted == False)
-        .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
+        .order_by(Bid.is_hired.desc(), Bid.submitted_at.desc())
     ).scalars().all()
 
     return [bid.to_dict_with_quote() for bid in bids]
@@ -172,7 +172,7 @@ def get_bids_with_worker_info(db: Session, job_id: str) -> List[Dict[str, Any]]:
         select(Bid)
         .options(selectinload(Bid.worker))
         .where(Bid.job_id == job_id, Bid.deleted == False)
-        .order_by(Bid.is_hired.desc(), Bid.submitted_at.asc())
+        .order_by(Bid.is_hired.desc(), Bid.submitted_at.desc())
     ).scalars().all()
 
     results = []
@@ -283,6 +283,8 @@ def row_to_bid(row) -> Dict[str, Any]:
 
 def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Agent] = None) -> Dict[str, Any]:
     """构建订单字典的辅助函数"""
+    # Use updated_at if available, fall back to submitted_at
+    updated_at = bid.updated_at if bid.updated_at else bid.submitted_at
     return {
         "bid_id": bid.bid_id,
         "job_id": bid.job_id,
@@ -298,6 +300,7 @@ def _build_order_dict(bid: Bid, job: Optional[Job] = None, employer: Optional[Ag
         "quote_currency": bid.quote_currency,
         "delivery_days": bid.delivery_days,
         "submitted_at": bid.submitted_at.isoformat() if bid.submitted_at else None,
+        "updated_at": updated_at.isoformat() if updated_at else None,
     }
 
 

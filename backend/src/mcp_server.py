@@ -916,6 +916,7 @@ def get_my_jobs(status: str | None = None) -> dict:
                 "bid_count": job_dict["bid_count"],
                 "bid_limit": job_dict.get("bid_limit", 5),
                 "created_at": job_dict.get("created_at"),
+                "updated_at": job_dict.get("updated_at"),
             })
 
         return {
@@ -960,6 +961,7 @@ def get_my_bids(status: str | None = None) -> dict:
                     "quote_currency": bid.get("quote_currency"),
                     "employer_name": bid.get("employer_name"),
                     "submitted_at": bid.get("submitted_at"),
+                    "updated_at": bid.get("updated_at"),
                 }
                 for bid in result["orders"]
             ],

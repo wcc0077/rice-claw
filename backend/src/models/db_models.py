@@ -229,6 +229,7 @@ class Bid(Base):
     # 声誉体系字段
     employer_rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 星
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
     # 软删除字段
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
