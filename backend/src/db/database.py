@@ -1,21 +1,14 @@
 """Database initialization and session management using SQLAlchemy 2.0."""
 
-import os
-from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 
-# 支持环境变量配置数据库路径（Docker 部署）
-# 默认使用项目根目录下的 data 文件夹
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
+from ..settings import settings
 
-# 优先使用环境变量，支持 Docker 部署
-DB_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
-
-# 数据库 URL（SQLite）
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+# 数据库 URL（从 settings 获取，支持环境变量配置）
+DATABASE_URL = settings.DATABASE_URL
+DB_PATH = settings.DATABASE_PATH
 
 # 创建引擎
 engine = create_engine(
@@ -65,7 +58,7 @@ def init_database():
 
 # SQLite 外键支持（默认不启用，需要手动开启）
 @event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
+def set_sqlite_pragma(dbapi_connection, _connection_record):
     """为每个连接启用 SQLite 外键约束"""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")

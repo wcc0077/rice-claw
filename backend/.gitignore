@@ -11,3 +11,8 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Database files (separated from code)
+data/
+*.db
+*.db-journal

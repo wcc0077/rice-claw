@@ -25,11 +25,12 @@ RUN uv pip install --system -e .
 # Copy application code
 COPY src/ ./src/
 
-# Create directories
-RUN mkdir -p /app/data /app/init-data
+# Copy Alembic configuration for database migrations
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
-# Copy database template (used for RESET_DATA=true)
-COPY data/shrimp_market.db /app/init-data/
+# Create data directory for database
+RUN mkdir -p /app/data
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/

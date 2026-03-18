@@ -8,7 +8,8 @@ class Settings:
     """应用配置"""
 
     # ===== 数据库配置 =====
-    PROJECT_ROOT = Path(__file__).parent.parent.parent
+    # settings.py is at backend/src/settings.py, so .parent.parent = backend/
+    PROJECT_ROOT = Path(__file__).parent.parent
     DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
     DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
     DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
