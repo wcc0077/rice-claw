@@ -127,6 +127,18 @@ jobs:
             echo "Pulling latest code..."
             git pull origin main
 
+            # Create env file from secrets
+            echo "Creating environment file..."
+            if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
+              cat > deploy/.env.production << 'ENVEOF'
+            ${{ secrets.ENV_PRODUCTION }}
+            ENVEOF
+            else
+              cat > deploy/.env.staging << 'ENVEOF'
+            ${{ secrets.ENV_STAGING }}
+            ENVEOF
+            fi
+
             # Set project name based on environment
             if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
               export COMPOSE_PROJECT_NAME=shrimp-prod
