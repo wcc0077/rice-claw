@@ -28,7 +28,60 @@ on:
           - production
 
 jobs:
+  # 检测是否需要生成迁移文件
+  check-migration:
+    runs-on: ubuntu-latest
+    outputs:
+      needs_migration: ${{ steps.check.outputs.needs_migration }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Check for model changes
+        id: check
+        working-directory: backend
+        run: |
+          # 启动临时数据库
+          docker run -d --name temp-postgres -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 5432:5432 postgres:16-alpine
+          sleep 5
+
+          # 设置测试数据库连接
+          export DB_TYPE=postgresql
+          export POSTGRES_HOST=localhost
+          export POSTGRES_USER=test
+          export POSTGRES_PASSWORD=test
+          export POSTGRES_DB=test
+
+          # 检测是否有模型变化需要迁移
+          uv run alembic revision --autogenerate -m "check_migration" --dry-run 2>&1 | tee check_output.txt
+
+          # 如果输出包含 "Target database is not up to date" 或有新迁移
+          if grep -q "Detected new changes\|Target database is not up to date" check_output.txt; then
+            echo "needs_migration=true" >> $GITHUB_OUTPUT
+            echo "::warning::模型发生变化，需要生成迁移文件！请运行: uv run alembic revision --autogenerate -m \"your_message\""
+          else
+            echo "needs_migration=false" >> $GITHUB_OUTPUT
+          fi
+
+          # 清理
+          docker stop temp-postgres && docker rm temp-postgres
+
   deploy:
+    needs: check-migration
+    if: needs.check-migration.outputs.needs_migration != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -92,10 +145,26 @@ jobs:
 
             # Wait for health check
             echo "Waiting for services to be healthy..."
-            sleep 10
+            sleep 30
 
             # Check service status
             docker compose -f ${{ steps.env.outputs.compose_file }} ps
+
+            # Verify database migration
+            echo "Verifying database migration..."
+            if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
+              docker exec shrimp-postgres-prod psql -U shrimp -d shrimp_market -c "SELECT version_num FROM alembic_version;"
+            else
+              docker exec shrimp-postgres-staging psql -U shrimp -d shrimp_market_staging -c "SELECT version_num FROM alembic_version;"
+            fi
+
+            # Verify backend health
+            echo "Verifying backend health..."
+            if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
+              curl -f http://localhost:8000/health || exit 1
+            else
+              curl -f http://localhost:8080/health || exit 1
+            fi
 
             # Clean up old images
             echo "Cleaning up old images..."

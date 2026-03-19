@@ -2,13 +2,30 @@
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent
+
+# 加载 .env 文件
+# 优先级: .env.local > .env.{ENVIRONMENT} > .env.development
+# ENVIRONMENT 可通过环境变量预先设置
+_env = os.getenv("ENVIRONMENT", "development")
+
+# 按优先级尝试加载
+env_files = [
+    PROJECT_ROOT / ".env.local",
+    PROJECT_ROOT / f".env.{_env}",
+    PROJECT_ROOT / ".env.development",
+]
+for env_file in env_files:
+    if env_file.exists():
+        load_dotenv(env_file, override=True)
+        break
 
 
 class Settings:
     """应用配置"""
-
-    # ===== 项目路径 =====
-    PROJECT_ROOT = Path(__file__).parent.parent
 
     # ===== 环境 =====
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # development, staging, production

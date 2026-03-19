@@ -1,6 +1,6 @@
 # Docker Compose for Local Development
 # 本地开发环境 - 仅启动依赖服务（PostgreSQL, Redis）
-# 后端服务在本地运行：uv run uvicorn src.main:app --reload
+# 后端服务在本地运行：cd backend && uv run uvicorn src.main:app --reload
 
 name: shrimp-dev
 
@@ -12,10 +12,8 @@ services:
     restart: unless-stopped
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_USER: shrimp
-      POSTGRES_PASSWORD: shrimp123
-      POSTGRES_DB: shrimp_market_dev
+    env_file:
+      - .env.development
     volumes:
       - shrimp-dev-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -38,16 +36,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Adminer - Database Admin UI (optional)
-  adminer:
-    image: adminer
-    container_name: shrimp-adminer-dev
-    restart: unless-stopped
-    ports:
-      - "8081:8080"
-    depends_on:
-      - postgres
 
 volumes:
   shrimp-dev-postgres:
