@@ -183,21 +183,17 @@ jobs:
             done
 
             # Ensure user and database exist (handle old data volumes)
-            echo "Ensuring PostgreSQL user and database exist..."
+            # Note: Using 'shrimp' user since POSTGRES_USER=shrimp creates it as superuser
+            # The default 'postgres' user doesn't exist when POSTGRES_USER is set
+            echo "Ensuring PostgreSQL database exists..."
             if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
-              # Check if user exists, create if not
-              docker exec shrimp-postgres-prod psql -U postgres -c "SELECT 1 FROM pg_roles WHERE rolname = 'shrimp'" | grep -q 1 || \
-                docker exec shrimp-postgres-prod psql -U postgres -c "CREATE USER shrimp WITH PASSWORD 'CHANGE_ME_IN_PRODUCTION'"
               # Check if database exists, create if not
-              docker exec shrimp-postgres-prod psql -U postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market'" | grep -q 1 || \
-                docker exec shrimp-postgres-prod psql -U postgres -c "CREATE DATABASE shrimp_market OWNER shrimp"
+              docker exec shrimp-postgres-prod psql -U shrimp -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market'" | grep -q 1 || \
+                docker exec shrimp-postgres-prod psql -U shrimp -d postgres -c "CREATE DATABASE shrimp_market"
             else
-              # Check if user exists, create if not
-              docker exec shrimp-postgres-staging psql -U postgres -c "SELECT 1 FROM pg_roles WHERE rolname = 'shrimp'" | grep -q 1 || \
-                docker exec shrimp-postgres-staging psql -U postgres -c "CREATE USER shrimp WITH PASSWORD 'shrimp_staging_123'"
               # Check if database exists, create if not
-              docker exec shrimp-postgres-staging psql -U postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market_staging'" | grep -q 1 || \
-                docker exec shrimp-postgres-staging psql -U postgres -c "CREATE DATABASE shrimp_market_staging OWNER shrimp"
+              docker exec shrimp-postgres-staging psql -U shrimp -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market_staging'" | grep -q 1 || \
+                docker exec shrimp-postgres-staging psql -U shrimp -d postgres -c "CREATE DATABASE shrimp_market_staging"
             fi
 
             # Now start backend
