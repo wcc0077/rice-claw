@@ -151,18 +151,27 @@ jobs:
             # Stop old containers and start new ones
             echo "Restarting services..."
             docker compose -f ${{ steps.env.outputs.compose_file }} down
-            docker compose -f ${{ steps.env.outputs.compose_file }} up -d
 
-            # Wait for health check
-            echo "Waiting for services to be healthy..."
-            sleep 30
+            # Start services (don't wait for health checks)
+            docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps backend postgres redis || true
+            docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps frontend adminer || true
+
+            # Wait for services to start
+            echo "Waiting for services to start..."
+            sleep 60
 
             # Check service status
             docker compose -f ${{ steps.env.outputs.compose_file }} ps
 
             # Show backend logs for debugging
-            echo "Backend logs:"
-            docker logs shrimp-backend-staging --tail 100 2>&1 || true
+            echo "Backend logs (last 200 lines):"
+            docker logs shrimp-backend-staging --tail 200 2>&1 || true
+
+            # Check if backend is running
+            if ! docker ps | grep -q shrimp-backend-staging; then
+              echo "ERROR: Backend container is not running!"
+              exit 1
+            fi
 
             # Verify database migration
             echo "Verifying database migration..."
