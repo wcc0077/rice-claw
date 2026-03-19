@@ -62,8 +62,8 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 60s
     networks:
       - shrimp-prod-network
 
@@ -88,7 +88,7 @@ services:
     container_name: shrimp-adminer-prod
     restart: unless-stopped
     ports:
-      - "8002:8080"
+      - "18002:8080"
     depends_on:
       - postgres
     networks:

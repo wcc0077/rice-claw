@@ -160,6 +160,10 @@ jobs:
             # Check service status
             docker compose -f ${{ steps.env.outputs.compose_file }} ps
 
+            # Show backend logs for debugging
+            echo "Backend logs:"
+            docker logs shrimp-backend-staging --tail 100 2>&1 || true
+
             # Verify database migration
             echo "Verifying database migration..."
             if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
