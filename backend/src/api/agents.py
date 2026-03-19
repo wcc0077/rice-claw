@@ -8,7 +8,7 @@ from ..db.database import get_db
 from ..db import agents as agent_dal
 from ..db import bids as bid_dal
 from ..models.schemas import AgentCreate, AgentUpdate, AgentEdit, AgentResponse, AgentListResponse
-from ..models.db_models import AdminUser, Agent
+from ..models.db_models import AdminUser
 from ..auth.dependencies import get_current_admin_user, get_current_agent
 
 router = APIRouter()
@@ -113,9 +113,16 @@ async def delete_agent_endpoint(
     agent_id: str,
     db: Session = Depends(get_db)
 ):
-    """Delete an agent.
+    """Delete an agent with all related data (hard delete).
 
-    Note: Agents with related jobs or bids cannot be deleted.
+    This permanently deletes the agent and all associated data:
+    - Jobs (as employer) with bids, messages, artifacts, payments
+    - Bids (as worker)
+    - Messages (sent and received)
+    - Artifacts and artifact versions
+    - Payments, WebSocket connections, reputation logs, audit logs
+
+    Warning: This operation cannot be undone!
     """
     try:
         success = agent_dal.delete_agent(db, agent_id)

@@ -354,7 +354,9 @@ def verify_agent(db: Session, agent_id: str) -> Optional[Agent]:
 
 
 def delete_agent(db: Session, agent_id: str) -> bool:
-    """删除代理（软删除）
+    """删除代理（物理删除，同时删除所有关联数据）
+
+    用于测试环境，会永久删除 agent 及其所有关联数据。
 
     Args:
         db: 数据库会话
@@ -362,43 +364,95 @@ def delete_agent(db: Session, agent_id: str) -> bool:
 
     Returns:
         是否删除成功
-
-    Raises:
-        ValueError: 代理有关联数据无法删除
     """
-    from ..models.db_models import Job, Bid, Message, Artifact
-    from datetime import datetime
+    from ..models.db_models import (
+        Job, Bid, Message, Artifact, WsConnection, ReputationLog,
+        AuditLog, JobWorker, Payment, MessageDelivery, ArtifactVersion
+    )
+    from sqlalchemy import delete as sql_delete
 
-    agent = get_agent(db, agent_id)
+    # 获取 agent（包括已删除的）
+    agent = db.execute(
+        select(Agent).where(Agent.agent_id == agent_id)
+    ).scalar_one_or_none()
+
     if not agent:
         return False
 
-    # 检查是否已删除
-    if agent.deleted:
-        return False
+    # ========== 1. 删除该 agent 作为 employer 的所有任务及其关联数据 ==========
+    jobs = db.execute(
+        select(Job).where(Job.employer_id == agent_id)
+    ).scalars().all()
 
-    # 检查是否有关联数据（排除已删除的任务）
-    job_count = db.execute(
-        select(func.count()).where(
-            Job.employer_id == agent_id,
-            Job.status != "DELETED"
-        )
-    ).scalar() or 0
+    for job in jobs:
+        # 删除任务的 job_workers
+        db.execute(sql_delete(JobWorker).where(JobWorker.job_id == job.job_id))
+        # 删除任务的 payments
+        db.execute(sql_delete(Payment).where(Payment.job_id == job.job_id))
+        # 删除任务的 bids
+        db.execute(sql_delete(Bid).where(Bid.job_id == job.job_id))
+        # 删除任务的 messages
+        db.execute(sql_delete(Message).where(Message.job_id == job.job_id))
+        # 删除任务的 artifacts（以及 artifact_versions）
+        artifacts = db.execute(
+            select(Artifact).where(Artifact.job_id == job.job_id)
+        ).scalars().all()
+        for artifact in artifacts:
+            db.execute(sql_delete(ArtifactVersion).where(
+                ArtifactVersion.artifact_id == artifact.artifact_id
+            ))
+        db.execute(sql_delete(Artifact).where(Artifact.job_id == job.job_id))
+        # 删除任务本身
+        db.delete(job)
 
-    bid_count = db.execute(
-        select(func.count()).where(Bid.worker_id == agent_id)
-    ).scalar() or 0
+    # ========== 2. 删除该 agent 作为 worker 的数据 ==========
+    # 删除 bids
+    db.execute(sql_delete(Bid).where(Bid.worker_id == agent_id))
 
-    if job_count > 0 or bid_count > 0:
-        raise ValueError(
-            f"无法删除代理：关联了 {job_count} 个任务和 {bid_count} 个竞标。"
-            "请先处理相关数据。"
-        )
+    # 删除 job_workers
+    db.execute(sql_delete(JobWorker).where(JobWorker.worker_id == agent_id))
 
-    # 软删除：设置 deleted 标记和 deleted_at 时间戳
-    agent.deleted = True
-    agent.deleted_at = datetime.utcnow()
+    # 删除 artifacts 及其 versions
+    artifacts = db.execute(
+        select(Artifact).where(Artifact.worker_id == agent_id)
+    ).scalars().all()
+    for artifact in artifacts:
+        db.execute(sql_delete(ArtifactVersion).where(
+            ArtifactVersion.artifact_id == artifact.artifact_id
+        ))
+    db.execute(sql_delete(Artifact).where(Artifact.worker_id == agent_id))
+
+    # 删除 artifact_versions (作为 worker)
+    db.execute(sql_delete(ArtifactVersion).where(ArtifactVersion.worker_id == agent_id))
+
+    # ========== 3. 删除消息相关数据 ==========
+    # 删除发送的消息
+    db.execute(sql_delete(Message).where(Message.from_agent_id == agent_id))
+
+    # 删除接收的消息
+    db.execute(sql_delete(Message).where(Message.to_agent_id == agent_id))
+
+    # 删除消息送达状态
+    db.execute(sql_delete(MessageDelivery).where(MessageDelivery.recipient_id == agent_id))
+
+    # ========== 4. 删除支付相关数据 ==========
+    db.execute(sql_delete(Payment).where(Payment.payer_id == agent_id))
+    db.execute(sql_delete(Payment).where(Payment.payee_id == agent_id))
+
+    # ========== 5. 删除其他关联数据 ==========
+    # WebSocket 连接
+    db.execute(sql_delete(WsConnection).where(WsConnection.agent_id == agent_id))
+
+    # 声誉日志
+    db.execute(sql_delete(ReputationLog).where(ReputationLog.agent_id == agent_id))
+
+    # 审计日志
+    db.execute(sql_delete(AuditLog).where(AuditLog.agent_id == agent_id))
+
+    # ========== 6. 最后删除 agent 本身 ==========
+    db.delete(agent)
     db.commit()
+
     return True
 
 
