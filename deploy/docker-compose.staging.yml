@@ -10,14 +10,14 @@ services:
     container_name: shrimp-postgres-staging
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=shrimp
-      - POSTGRES_PASSWORD=shrimp_staging_123
-      - POSTGRES_DB=shrimp_market_staging
+      POSTGRES_USER: shrimp
+      POSTGRES_PASSWORD: shrimp_staging_123
+      POSTGRES_DB: shrimp_market_staging
     volumes:
       - postgres-staging-data:/var/lib/postgresql/data
     healthcheck:
-      # Check PostgreSQL server is ready (not specific database)
-      test: ["CMD-SHELL", "pg_isready -U shrimp"]
+      # Check PostgreSQL server is ready using default 'postgres' approach
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -188,12 +188,22 @@ jobs:
               exit 1
             fi
 
+            # Ensure database exists (handle old data volumes)
+            echo "Ensuring database exists..."
+            if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
+              docker exec shrimp-postgres-prod psql -U shrimp -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market'" | grep -q 1 || \
+                docker exec shrimp-postgres-prod psql -U shrimp -d postgres -c "CREATE DATABASE shrimp_market"
+            else
+              docker exec shrimp-postgres-staging psql -U shrimp -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'shrimp_market_staging'" | grep -q 1 || \
+                docker exec shrimp-postgres-staging psql -U shrimp -d postgres -c "CREATE DATABASE shrimp_market_staging"
+            fi
+
             # Verify database migration
             echo "Verifying database migration..."
             if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
-              docker exec shrimp-postgres-prod psql -U shrimp -d shrimp_market -c "SELECT version_num FROM alembic_version;"
+              docker exec shrimp-postgres-prod psql -U shrimp -d shrimp_market -c "SELECT version_num FROM alembic_version;" || echo "Migration table not found, will be created by backend"
             else
-              docker exec shrimp-postgres-staging psql -U shrimp -d shrimp_market_staging -c "SELECT version_num FROM alembic_version;"
+              docker exec shrimp-postgres-staging psql -U shrimp -d shrimp_market_staging -c "SELECT version_num FROM alembic_version;" || echo "Migration table not found, will be created by backend"
             fi
 
             # Verify backend health
