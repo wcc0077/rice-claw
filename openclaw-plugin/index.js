@@ -3,14 +3,7 @@
  *
  * 功能：
  * 1. 注册 MCP 工具
- * 2. 自动创建 Cron Job（幂等）
  */
-
-const { exec, spawn } = require('child_process');
-const path = require('path');
-const os = require('os');
-
-const CRON_NAME = 'shrimp-market-monitor';
 
 module.exports = {
   register(api) {
@@ -61,8 +54,6 @@ module.exports = {
         (data.result?.content?.[0]?.text ? JSON.parse(data.result.content[0].text) : data.result);
     }
 
-    
-
     // ============ 注册工具 ============
     const TOOLS = [
       ['get_my_profile', '获取档案信息', {}],
@@ -98,182 +89,6 @@ module.exports = {
       });
     }
 
-    // ============ 自动创建 Cron Job（幂等）============
-    setupCronJob(api, apiKey, baseUrl);
-
     api.logger.info('Shrimp Market plugin loaded');
   },
 };
-
-/**
- * 根据角色类型生成不同的 Cron 消息
- */
-function buildCronMessage(agentType, scriptPath, apiKey) {
-
-  if (agentType === 'employer') {
-    return `你是雇主(Employer)，执行虾有钳状态检测：
-1. 运行: node "${scriptPath}" detect-job --api-key ${apiKey}
-2. 运行: node "${scriptPath}" detect-messages --api-key ${apiKey}
-3. 如果任务状态有变化，返回新的状态
-4. 如果有新消息，返回新消息
-5. 如果什么都没有，则静默不输出`;
-  } 
-  
-  if (agentType === 'worker') {
-    return `你是打工者(Worker)，执行虾有钳状态检测：
-1. 运行: node "${scriptPath}" detect-bid --api-key ${apiKey}
-2. 运行: node "${scriptPath}" detect-messages --api-key ${apiKey}
-3. 如果任务状态有变化，返回新的状态
-4. 如果有新消息，返回新消息
-5. 如果什么都没有，则静默不输出`;
-  }
-  // 默认消息（未知类型）
-  return `提示用户类型有误，请检查配置项`;
-}
-
-/**
- * 获取 Agent 类型
- */
-async function getAgentType(baseUrl, apiKey) {
-  const res = await fetch(`${baseUrl}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'Accept': 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'tools/call',
-      params: { name: 'get_my_profile', arguments: {} },
-      id: Date.now(),
-    }),
-  });
-
-  if (!res.ok) throw new Error(`MCP call failed: ${res.status}`);
-
-  const text = await res.text();
-  // SSE format: each line is "event:" or "data:"
-  const lines = text.split('\n');
-  let data = null;
-  for (const line of lines) {
-    if (line.startsWith('data:')) {
-      data = JSON.parse(line.substring(5).trim());
-      break;
-    }
-  }
-  if (!data) throw new Error('No data line in SSE response');
-  if (data.error) throw new Error(data.error.message);
-
-  const result = data.result?.structuredContent ||
-    (data.result?.content?.[0]?.text ? JSON.parse(data.result.content[0].text) : data.result);
-
-  return result?.agent_type || 'unknown';
-}
-
-/**
- * 自动创建 Cron Job（幂等操作）
- * 先获取 Agent 类型，再根据类型生成不同的 Cron 消息
- */
-async function setupCronJob(api, apiKey, baseUrl) {
-  const scriptPath = path.join(
-    os.homedir(),
-    '.openclaw',
-    'extensions',
-    'shrimp-market',
-    'scripts',
-    'cli.js'
-  );
-
-  // 获取 Agent 类型
-  let agentType = 'unknown';
-  try {
-    agentType = await getAgentType(baseUrl, apiKey);
-    api.logger.info(`Shrimp Market: Detected agent type: ${agentType}`);
-  } catch (err) {
-    api.logger.warn(`Shrimp Market: Failed to get agent type: ${err.message}`);
-  }
-
-  const cronMessage = buildCronMessage(agentType, scriptPath, apiKey);
-
-  try {
-    await setupCronJobWithMessage(api, cronMessage);
-  } catch (err) {
-    api.logger.error(`Shrimp Market: Cron job setup failed: ${err.message}`);
-  }
-}
-
-/**
- * 设置 Cron Job（内部函数）
- */
-async function setupCronJobWithMessage(api, cronMessage) {
-  return new Promise((resolve) => {
-    exec('openclaw cron list --json', (error, stdout, stderr) => {
-      if (error) {
-        api.logger.warn('Shrimp Market: Failed to list cron jobs:', error.message);
-        // 即使列出失败，也尝试创建
-        createCronJob(api, cronMessage);
-        resolve();
-        return;
-      }
-
-      try {
-        const result = JSON.parse(stdout);
-        const jobs = result.jobs || [];
-        const existing = jobs.find(job => job.name === CRON_NAME || job.id === CRON_NAME);
-
-        if (existing) {
-          api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' exists, deleting and recreating...`);
-          exec(`openclaw cron rm ${CRON_NAME}`, (rmError) => {
-            if (rmError) {
-              api.logger.warn('Shrimp Market: Failed to delete old cron job:', rmError.message);
-            }
-            createCronJob(api, cronMessage);
-            resolve();
-          });
-        } else {
-          createCronJob(api, cronMessage);
-          resolve();
-        }
-      } catch (e) {
-        api.logger.warn('Shrimp Market: Failed to parse cron list:', e.message);
-        createCronJob(api, cronMessage);
-        resolve();
-      }
-    });
-  });
-}
-
-function createCronJob(api, cronMessage) {
-  const args = [
-    'cron', 'add',
-    '--name', CRON_NAME,
-    '--cron', '*/1 * * * *',
-    '--message', cronMessage,
-    '--announce',
-  ];
-
-  api.logger.info(`Shrimp Market: Creating cron job '${CRON_NAME}'...`);
-
-  try {
-    const child = spawn('openclaw', args, {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
-
-    child.on('error', (err) => {
-      api.logger.error('Shrimp Market: Failed to create cron job:', err.message);
-    });
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        api.logger.info(`Shrimp Market: Cron job '${CRON_NAME}' created successfully`);
-      } else {
-        api.logger.warn(`Shrimp Market: Cron job creation exited with code ${code}`);
-      }
-    });
-  } catch (err) {
-    api.logger.error(`Shrimp Market: spawn failed: ${err.message}`);
-  }
-}

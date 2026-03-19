@@ -12,7 +12,7 @@
       "serverUrl": {
         "type": "string",
         "description": "MCP Server URL",
-        "default": "http://38961616.r31.cpolar.top/mcp"
+        "default": "http://129.211.9.117:3000/mcp"
       },
       "apiKey": {
         "type": "string",

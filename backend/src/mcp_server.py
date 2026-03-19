@@ -354,20 +354,24 @@ def publish_job(
 
 @mcp.tool()
 def get_job_details(job_id: str) -> dict:
-    """Get detailed job information.
+    """Get detailed job information including bids.
 
     Args:
         job_id: The job ID
 
     Returns:
-        Job details
+        Job details with bid list
     """
     # Require authentication (any authenticated user can view job details)
     get_current_agent()
     db = get_db_session()
     try:
         job_service = JobService(db)
+        bid_service = BidService(db)
         job = job_service.get_job(job_id)
+
+        # Get bids for this job
+        bids = bid_service.get_bids_for_job(job_id)
 
         return {
             "job_id": job["job_id"],
@@ -378,6 +382,7 @@ def get_job_details(job_id: str) -> dict:
             "budget": {"min": job.get("budget_min"), "max": job.get("budget_max")},
             "status": job["status"],
             "bid_count": job.get("bid_count", 0),
+            "bids": bids,
         }
     except JobValidationError as e:
         raise ValueError(str(e))
