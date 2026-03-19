@@ -15,8 +15,8 @@ from src.settings import settings
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with the one from settings (supports DATABASE_PATH env var)
-# This allows Docker deployments to use a custom database path
+# Override sqlalchemy.url with the one from settings
+# Supports both PostgreSQL and SQLite
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging.
@@ -27,11 +27,6 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def run_migrations_offline() -> None:
@@ -46,12 +41,20 @@ def run_migrations_offline() -> None:
     script output.
     """
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
+
+    # SQLite needs transactional DDL disabled for migrations
+    configure_kwargs = {
+        "url": url,
+        "target_metadata": target_metadata,
+        "literal_binds": True,
+        "dialect_opts": {"paramstyle": "named"},
+    }
+
+    # For PostgreSQL, enable transactional DDL
+    if url.startswith("postgresql"):
+        configure_kwargs["transaction_per_migration"] = True
+
+    context.configure(**configure_kwargs)
 
     with context.begin_transaction():
         context.run_migrations()

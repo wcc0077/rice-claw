@@ -4,6 +4,26 @@
 name: shrimp-staging
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: shrimp-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shrimp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shrimp123}
+      POSTGRES_DB: ${POSTGRES_DB:-shrimp_market}
+    volumes:
+      - postgres-staging-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shrimp} -d ${POSTGRES_DB:-shrimp_market}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shrimp-staging-network
+
+  # Backend API
   backend:
     build:
       context: ../backend
@@ -12,20 +32,26 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8000"
-    volumes:
-      - shrimp-staging-data:/app/data
     environment:
-      - DATABASE_PATH=/app/data/shrimp_market.db
-      - RESET_DATA=true
+      - DB_TYPE=postgresql
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-shrimp}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-shrimp123}
+      - POSTGRES_DB=${POSTGRES_DB:-shrimp_market}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     networks:
       - shrimp-staging-network
 
+  # Frontend
   frontend:
     build:
       context: ../frontend
@@ -41,7 +67,7 @@ services:
       - shrimp-staging-network
 
 volumes:
-  shrimp-staging-data:
+  postgres-staging-data:
     driver: local
 
 networks:

@@ -7,30 +7,56 @@ from pathlib import Path
 class Settings:
     """应用配置"""
 
-    # ===== 数据库配置 =====
-    # settings.py is at backend/src/settings.py, so .parent.parent = backend/
+    # ===== 项目路径 =====
     PROJECT_ROOT = Path(__file__).parent.parent
+
+    # ===== 数据库配置 =====
+    # 支持 PostgreSQL 和 SQLite
+    # PostgreSQL: 设置 DATABASE_URL=postgresql://user:password@host:port/database
+    # SQLite: 设置 DATABASE_URL=sqlite:///path/to/db.db 或使用 DATABASE_PATH
+
+    # PostgreSQL 配置
+    DB_TYPE = os.getenv("DB_TYPE", "sqlite")  # "postgresql" or "sqlite"
+    POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
+    POSTGRES_USER = os.getenv("POSTGRES_USER", "shrimp")
+    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "shrimp123")
+    POSTGRES_DB = os.getenv("POSTGRES_DB", "shrimp_market")
+
+    # SQLite 配置（用于本地开发）
     DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
     DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
 
     @property
     def DATABASE_URL(self) -> str:
-        """Get database URL with correct SQLite path format.
+        """构建数据库 URL
 
-        SQLite URL format:
-        - Relative path: sqlite:///relative/path.db (3 slashes)
-        - Unix absolute path: sqlite:////absolute/path.db (4 slashes)
-        - Windows absolute path: sqlite:///C:/path/to/db.db (3 slashes)
+        优先级：
+        1. DATABASE_URL 环境变量（直接指定完整 URL）
+        2. DB_TYPE 环境变量决定使用 PostgreSQL 或 SQLite
         """
-        db_path = str(self.DATABASE_PATH)
-        import platform
-        if platform.system() == "Windows":
-            return f"sqlite:///{db_path}"
+        # 如果直接设置了 DATABASE_URL，直接使用
+        if os.getenv("DATABASE_URL"):
+            return os.getenv("DATABASE_URL")
+
+        # 根据 DB_TYPE 构建 URL
+        if self.DB_TYPE == "postgresql":
+            return (
+                f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            )
         else:
-            # On Unix, absolute paths need 4 slashes
-            if db_path.startswith("/"):
-                return f"sqlite:///{db_path}"
+            # SQLite
+            db_path = str(self.DATABASE_PATH)
             return f"sqlite:///{db_path}"
+
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        """异步数据库 URL（用于异步操作）"""
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     # ===== Redis 配置 =====
     REDIS_HOST = os.getenv("REDIS_HOST", "localhost")

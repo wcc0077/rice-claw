@@ -9,6 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_SYSTEM_PYTHON=1 \
     PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 
+# Install system dependencies for PostgreSQL
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install uv using pip with mirror
 RUN pip install --no-cache-dir uv
 
@@ -29,15 +34,9 @@ COPY src/ ./src/
 COPY alembic.ini ./
 COPY alembic/ ./alembic/
 
-# Create data directory for database
-RUN mkdir -p /app/data
-
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/
 RUN chmod +x /app/docker-entrypoint.sh
-
-# Set default database path
-ENV DATABASE_PATH=/app/data/shrimp_market.db
 
 # Expose port
 EXPOSE 8000

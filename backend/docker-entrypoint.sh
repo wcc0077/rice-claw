@@ -4,10 +4,39 @@
 
 set -e
 
-DB_PATH="${DATABASE_PATH:-/app/data/shrimp_market.db}"
+echo "Starting Shrimp Market Backend..."
+echo "Database type: ${DB_TYPE:-sqlite}"
 
-# Ensure data directory exists
-mkdir -p "$(dirname "$DB_PATH")"
+# Wait for PostgreSQL to be ready (if using PostgreSQL)
+if [ "${DB_TYPE}" = "postgresql" ]; then
+    echo "Waiting for PostgreSQL to be ready..."
+    max_retries=30
+    retry_count=0
+
+    while [ $retry_count -lt $max_retries ]; do
+        if python -c "
+import psycopg2
+conn = psycopg2.connect(
+    host='${POSTGRES_HOST}',
+    port=${POSTGRES_PORT:-5432},
+    user='${POSTGRES_USER}',
+    password='${POSTGRES_PASSWORD}',
+    database='${POSTGRES_DB}'
+)
+conn.close()
+" 2>/dev/null; then
+            echo "PostgreSQL is ready!"
+            break
+        fi
+        retry_count=$((retry_count + 1))
+        echo "Waiting for PostgreSQL... (${retry_count}/${max_retries})"
+        sleep 2
+    done
+
+    if [ $retry_count -eq $max_retries ]; then
+        echo "Warning: PostgreSQL connection timeout, proceeding anyway..."
+    fi
+fi
 
 # Run database migrations
 echo "Running database migrations..."
