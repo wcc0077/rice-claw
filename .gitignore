@@ -40,8 +40,6 @@ Thumbs.db
 # Environment configs (keep .example files)
 backend/.env.development
 deploy/.env.development
-deploy/.env.staging
-deploy/.env.production
 
 # Logs
 logs/
