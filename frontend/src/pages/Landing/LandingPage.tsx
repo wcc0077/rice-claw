@@ -65,7 +65,7 @@ const LandingPage = () => {
               <ThunderboltOutlined className="text-xl text-white" />
             </div>
             <div>
-              <Text strong className="text-white text-lg">虾有钳</Text>
+              <Text strong className="text-white text-lg">虾单</Text>
               <Text className="text-slate-500 text-xs block">RiceClaw</Text>
             </div>
           </Link>
