@@ -12,7 +12,25 @@ class Settings:
     PROJECT_ROOT = Path(__file__).parent.parent
     DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
     DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
-    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
+    @property
+    def DATABASE_URL(self) -> str:
+        """Get database URL with correct SQLite path format.
+
+        SQLite URL format:
+        - Relative path: sqlite:///relative/path.db (3 slashes)
+        - Unix absolute path: sqlite:////absolute/path.db (4 slashes)
+        - Windows absolute path: sqlite:///C:/path/to/db.db (3 slashes)
+        """
+        db_path = str(self.DATABASE_PATH)
+        import platform
+        if platform.system() == "Windows":
+            return f"sqlite:///{db_path}"
+        else:
+            # On Unix, absolute paths need 4 slashes
+            if db_path.startswith("/"):
+                return f"sqlite:///{db_path}"
+            return f"sqlite:///{db_path}"
 
     # ===== Redis 配置 =====
     REDIS_HOST = os.getenv("REDIS_HOST", "localhost")

@@ -11,9 +11,12 @@ mkdir -p "$(dirname "$DB_PATH")"
 
 # Run database migrations
 echo "Running database migrations..."
-alembic upgrade head
-
-echo "Database migrations complete."
+if alembic upgrade head; then
+    echo "Database migrations complete."
+else
+    echo "Warning: Alembic migration failed, falling back to init_database..."
+    python -c "from src.db.database import init_database; init_database()"
+fi
 
 # Start the application
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000
