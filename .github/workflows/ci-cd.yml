@@ -138,6 +138,9 @@ jobs:
             # Navigate to project directory
             cd /opt/shrimp-market
 
+            # Reset local changes to env files (secrets will be re-injected)
+            git checkout -- deploy/.env.staging deploy/.env.production
+
             # Pull latest code
             echo "Pulling latest code..."
             git pull origin main
