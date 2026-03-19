@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Shrimp Market MCP Broker Backend"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi>=0.115.0",
+    "fastapi[standard]>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "fastmcp>=0.1.0",
     "python-jose[cryptography]>=3.3.0",

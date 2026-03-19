@@ -10,7 +10,7 @@ from ..db import jobs as job_dal
 from ..db import bids as bid_dal
 from ..models.schemas import DashboardStats, DailyAnalytics
 from ..models.db_models import Agent, Job, Bid, AdminUser
-from ..auth.dependencies import get_current_admin_user_with_role
+from ..auth.dependencies import get_current_user, get_current_admin_user_with_role
 
 router = APIRouter()
 
@@ -18,9 +18,9 @@ router = APIRouter()
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
-    admin: AdminUser = Depends(get_current_admin_user_with_role)
+    admin: AdminUser = Depends(get_current_user)
 ):
-    """Get dashboard statistics (admin only)."""
+    """Get dashboard statistics (all authenticated users)."""
     try:
         # Total agents
         total_agents = db.execute(

@@ -61,6 +61,8 @@ module.exports = {
         (data.result?.content?.[0]?.text ? JSON.parse(data.result.content[0].text) : data.result);
     }
 
+    
+
     // ============ 注册工具 ============
     const TOOLS = [
       ['get_my_profile', '获取档案信息', {}],
@@ -247,7 +249,6 @@ function createCronJob(api, cronMessage) {
     'cron', 'add',
     '--name', CRON_NAME,
     '--cron', '*/1 * * * *',
-    '--session', 'isolated',
     '--message', cronMessage,
     '--announce',
   ];

@@ -34,12 +34,14 @@ class SMSService:
             access_key_id = os.getenv("ALIYUN_ACCESS_KEY_ID")
             access_key_secret = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
 
-            # Debug logging
-            logger.info(f"Initializing SMS client with AccessKey ID: {access_key_id[:8] + '***' if access_key_id else 'NOT SET'}")
-            logger.info(f"AccessKey Secret: {'***' + access_key_secret[-4:] if access_key_secret else 'NOT SET'}")
+            # Check for placeholder values
+            if access_key_id == "your_access_key_id_here" or not access_key_id:
+                raise ValueError("ALIYUN_ACCESS_KEY_ID 未配置。请在 GitHub Secrets 中添加 ALIYUN_ACCESS_KEY_ID")
+            if access_key_secret == "your_access_key_secret_here" or not access_key_secret:
+                raise ValueError("ALIYUN_ACCESS_KEY_SECRET 未配置。请在 GitHub Secrets 中添加 ALIYUN_ACCESS_KEY_SECRET")
 
-            if not access_key_id or not access_key_secret:
-                raise ValueError("ALIYUN_ACCESS_KEY_ID or ALIYUN_ACCESS_KEY_SECRET not set in environment")
+            # Debug logging (mask sensitive data)
+            logger.info(f"Initializing SMS client with AccessKey ID: {access_key_id[:8] + '***' if len(access_key_id) > 8 else '***'}")
 
             config = open_api_models.Config(
                 access_key_id=access_key_id,
@@ -128,37 +130,8 @@ class SMSService:
 
     @classmethod
     def _check_rate_limit(cls, phone: str) -> dict:
-        """检查发送频率限制"""
-        with SessionLocal() as db:
-            rate_limit = db.get(SmsRateLimit, phone)
-
-            if rate_limit:
-                # 检查是否在1小时窗口内
-                window_age = utcnow() - rate_limit.window_start
-                if window_age < timedelta(hours=1):
-                    # 检查发送次数
-                    if rate_limit.send_count >= 5:
-                        remaining = timedelta(hours=1) - window_age
-                        minutes = int(remaining.total_seconds() / 60)
-                        return {
-                            "allowed": False,
-                            "message": f"发送次数过多，请{minutes}分钟后再试",
-                        }
-
-                    # 检查发送间隔（至少1分钟）
-                    time_since_last = utcnow() - rate_limit.last_sent_at
-                    if time_since_last < timedelta(minutes=1):
-                        seconds = 60 - int(time_since_last.total_seconds())
-                        return {
-                            "allowed": False,
-                            "message": f"请{seconds}秒后再试",
-                        }
-                else:
-                    # 重置窗口
-                    rate_limit.send_count = 0
-                    rate_limit.window_start = utcnow()
-                    db.commit()
-
+        """检查发送频率限制（已禁用，用于开发测试）"""
+        # 频率限制已禁用，允许无限制发送
         return {"allowed": True}
 
     @classmethod
@@ -231,7 +204,7 @@ class SMSService:
             )
 
             result = db.execute(stmt)
-            verification = result.scalar_one_or_none()
+            verification = result.scalars().first()
 
             if not verification:
                 return {"valid": False, "message": "验证码已失效，请重新获取"}

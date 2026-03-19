@@ -186,18 +186,14 @@ async def hard_delete_job_endpoint(
     - All JobWorker records
     - All Payment records
 
-    Users can only delete their own jobs.
+    All authenticated users can delete any job (for development/testing).
     """
     from ..db.jobs import hard_delete_job
 
-    # Verify job belongs to current user's agents
+    # Verify job exists
     job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-
-    employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this job")
 
     success = hard_delete_job(db, job_id)
     if success:

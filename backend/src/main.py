@@ -1,8 +1,22 @@
 """FastAPI main application entry point."""
 
-# Load environment variables from .env file FIRST
+# Load environment variables FIRST
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+# 加载 .env 文件（优先级: .env.local > .env.{ENVIRONMENT} > .env.development）
+import os
+_env = os.getenv("ENVIRONMENT", "development")
+_project_root = Path(__file__).parent.parent
+_env_files = [
+    _project_root / ".env.local",
+    _project_root / f".env.{_env}",
+    _project_root / ".env.development",
+]
+for _env_file in _env_files:
+    if _env_file.exists():
+        load_dotenv(_env_file, override=True)
+        break
 
 import uvicorn
 from contextlib import asynccontextmanager

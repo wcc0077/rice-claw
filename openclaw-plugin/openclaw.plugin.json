@@ -12,7 +12,7 @@
       "serverUrl": {
         "type": "string",
         "description": "MCP Server URL",
-        "default": "http://44b08bf2.r31.cpolar.top"
+        "default": "http://38961616.r31.cpolar.top/mcp"
       },
       "apiKey": {
         "type": "string",
