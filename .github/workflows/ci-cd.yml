@@ -168,15 +168,27 @@ jobs:
             docker compose -f ${{ steps.env.outputs.compose_file }} down
 
             # Start services (don't wait for health checks)
-            docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps backend postgres redis || true
+            docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps postgres redis || true
+
+            # Wait for PostgreSQL to be ready
+            echo "Waiting for PostgreSQL to initialize..."
+            sleep 10
+            for i in {1..30}; do
+              if docker exec shrimp-postgres-staging pg_isready -U shrimp 2>/dev/null; then
+                echo "PostgreSQL is ready!"
+                break
+              fi
+              echo "Waiting for PostgreSQL... ($i/30)"
+              sleep 2
+            done
+
+            # Now start backend
+            docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps backend || true
             docker compose -f ${{ steps.env.outputs.compose_file }} up -d --no-deps frontend adminer || true
 
-            # Wait for services to start (reduced from 60s)
-            echo "Waiting for services to start..."
-            sleep 45
-
-            # Check service status
-            docker compose -f ${{ steps.env.outputs.compose_file }} ps
+            # Wait for backend to start (entrypoint does DB setup)
+            echo "Waiting for backend to initialize..."
+            sleep 30
 
             # Show backend logs for debugging
             echo "Backend logs (last 200 lines):"
@@ -185,6 +197,7 @@ jobs:
             # Check if backend is running
             if ! docker ps | grep -q shrimp-backend-staging; then
               echo "ERROR: Backend container is not running!"
+              docker logs shrimp-backend-staging 2>&1 || true
               exit 1
             fi
 
@@ -206,8 +219,26 @@ jobs:
               docker exec shrimp-postgres-staging psql -U shrimp -d shrimp_market_staging -c "SELECT version_num FROM alembic_version;" || echo "Migration table not found, will be created by backend"
             fi
 
-            # Verify backend health
+            # Verify backend health with retries
             echo "Verifying backend health..."
+            health_retries=10
+            for i in $(seq 1 $health_retries); do
+              if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
+                if curl -sf http://localhost:8000/health 2>/dev/null; then
+                  echo "Backend is healthy!"
+                  break
+                fi
+              else
+                if curl -sf http://localhost:8080/health 2>/dev/null; then
+                  echo "Backend is healthy!"
+                  break
+                fi
+              fi
+              echo "Waiting for backend health... ($i/$health_retries)"
+              sleep 5
+            done
+
+            # Final health check
             if [[ "${{ steps.env.outputs.env }}" == "prod" ]]; then
               curl -f http://localhost:8000/health || exit 1
             else
