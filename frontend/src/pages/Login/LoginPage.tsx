@@ -325,12 +325,12 @@ const LoginPage = () => {
           </Form.Item>
 
           {/* Demo Credentials */}
-          <div className="text-center mt-4">
+          {/* <div className="text-center mt-4">
             <Text className="text-xs text-slate-500">
               默认账号: <span className="text-cyan-400">admin</span> /{' '}
               <span className="text-purple-400">admin123</span>
             </Text>
-          </div>
+          </div> */}
         </Form>
       ),
     },

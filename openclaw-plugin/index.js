@@ -23,7 +23,7 @@ module.exports = {
       return;
     }
 
-    const baseUrl = serverUrl || 'http://44b08bf2.r31.cpolar.top/mcp/';
+    const baseUrl = serverUrl;
 
     // ============ MCP 调用 ============
     async function callMcp(toolName, args) {

@@ -9,14 +9,18 @@ from ..db import agents as agent_dal
 from ..db import jobs as job_dal
 from ..db import bids as bid_dal
 from ..models.schemas import DashboardStats, DailyAnalytics
-from ..models.db_models import Agent, Job, Bid
+from ..models.db_models import Agent, Job, Bid, AdminUser
+from ..auth.dependencies import get_current_admin_user_with_role
 
 router = APIRouter()
 
 
 @router.get("/dashboard/stats")
-async def get_dashboard_stats(db: Session = Depends(get_db)):
-    """Get dashboard statistics."""
+async def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
+):
+    """Get dashboard statistics (admin only)."""
     try:
         # Total agents
         total_agents = db.execute(
@@ -74,7 +78,8 @@ async def list_admin_agents(
     capability: str | None = None,
     page: int = 1,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
 ):
     """List all agents (admin only)."""
     result = agent_dal.list_agents(db, status=status, capability=capability, page=page, limit=limit)
@@ -82,7 +87,11 @@ async def list_admin_agents(
 
 
 @router.post("/agents/{agent_id}/ban")
-async def ban_agent(agent_id: str, db: Session = Depends(get_db)):
+async def ban_agent(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
+):
     """Ban an agent (admin only)."""
     agent = agent_dal.update_agent_status(db, agent_id, "offline")
     if not agent:
@@ -96,7 +105,8 @@ async def list_admin_jobs(
     date_range: str = "7d",
     page: int = 1,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
 ):
     """List all jobs (admin only)."""
     result = job_dal.list_jobs(db, status=status, page=page, limit=limit)
@@ -104,7 +114,11 @@ async def list_admin_jobs(
 
 
 @router.post("/jobs/{job_id}/force_close")
-async def force_close_job(job_id: str, db: Session = Depends(get_db)):
+async def force_close_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
+):
     """Force close a job (admin only)."""
     from datetime import datetime
     updated_job = job_dal.update_job(db, job_id, {
@@ -117,8 +131,11 @@ async def force_close_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/bids/pending-review")
-async def get_pending_bids(db: Session = Depends(get_db)):
-    """Get pending bid review list."""
+async def get_pending_bids(
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
+):
+    """Get pending bid review list (admin only)."""
     # TODO: Implement pending bids listing
     return {"bids": []}
 
@@ -127,8 +144,9 @@ async def get_pending_bids(db: Session = Depends(get_db)):
 async def get_daily_analytics(
     start_date: str = "2026-03-01",
     end_date: str = "2026-03-13",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin_user_with_role)
 ):
-    """Get daily analytics report."""
+    """Get daily analytics report (admin only)."""
     # TODO: Implement daily analytics
     return []

@@ -139,6 +139,58 @@ async def get_current_admin_user(
     return admin_user
 
 
+async def get_current_admin_user_with_role(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> AdminUser:
+    """Get the current authenticated admin user with admin role check.
+
+    This is similar to get_current_admin_user but also verifies the user
+    has admin or super_admin role.
+
+    Args:
+        credentials: The HTTP Bearer credentials
+        db: Database session
+
+    Returns:
+        The authenticated AdminUser with admin privileges
+
+    Raises:
+        HTTPException: 401 if auth fails, 403 if not admin role
+    """
+    admin_user = await get_current_admin_user(credentials, db)
+
+    if admin_user.role not in ("admin", "super_admin"):
+        raise HTTPException(
+            status_code=403,
+            detail="This action requires admin privileges."
+        )
+
+    return admin_user
+
+
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> AdminUser:
+    """Get the current authenticated user (admin or regular user).
+
+    This allows both admin and regular users to access endpoints.
+    Use this for user-scoped operations (their own agents, jobs, etc.).
+
+    Args:
+        credentials: The HTTP Bearer credentials
+        db: Database session
+
+    Returns:
+        The authenticated AdminUser (any role)
+
+    Raises:
+        HTTPException: 401 if auth fails
+    """
+    return await get_current_admin_user(credentials, db)
+
+
 from dataclasses import dataclass
 
 

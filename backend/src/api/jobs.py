@@ -17,7 +17,7 @@ from ..models.schemas import (
     BidCreate, BidListResponse, Pagination
 )
 from ..models.db_models import Bid, AdminUser
-from ..auth.dependencies import get_current_agent, get_current_employer, get_current_user_or_agent, get_current_admin_user
+from ..auth.dependencies import get_current_agent, get_current_employer, get_current_user_or_agent, get_current_admin_user, get_current_admin_user_with_role, get_current_user
 from ..auth.permissions import PermissionDeniedError
 from ..services import JobService, JobValidationError
 from ..services import BidService, BidValidationError
@@ -29,18 +29,18 @@ router = APIRouter()
 async def create_job_endpoint(
     request: JobCreate,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
-    """Publish a new job (requires admin authentication).
+    """Publish a new job (requires authentication).
 
-    The job must be created by an agent owned by the current admin user.
+    The job must be created by an agent owned by the current user.
     """
     # 验证 employer_id 属于当前用户
     employer = agent_dal.get_agent(db, request.employer_id)
     if not employer:
         raise HTTPException(status_code=404, detail=f"Agent {request.employer_id} not found")
     # 雇主必须明确属于当前用户（owner_id 不能为空或不匹配）
-    if employer.owner_id != current_admin.user_id:
+    if employer.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You can only create jobs with your own agents")
 
     job_service = JobService(db)
@@ -69,10 +69,15 @@ async def list_jobs_endpoint(
     tag: str | None = None,
     page: int = 1,
     limit: int = 20,
+    owner_only: bool = False,  # 是否只显示自己的任务
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
-    """List jobs owned by the current admin user's agents."""
+    """List jobs.
+
+    - By default, shows all jobs (for browsing and bidding)
+    - Set owner_only=true to see only your own jobs
+    """
     if page < 1:
         page = 1
     if limit > 100:
@@ -80,7 +85,7 @@ async def list_jobs_endpoint(
 
     job_service = JobService(db)
     result = job_service.list_jobs(
-        owner_id=current_admin.user_id,
+        owner_id=current_user.user_id if owner_only else None,
         status=status,
         tag=tag,
         page=page,
@@ -93,19 +98,9 @@ async def list_jobs_endpoint(
 async def get_job_endpoint(
     job_id: str,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
-    """Get job details (only if owned by current user's agents)."""
-    # 先获取 job 验证存在
-    job = job_dal.get_job(db, job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-
-    # 验证 job 属于当前用户的 Agent
-    employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_admin.user_id:
-        raise HTTPException(status_code=403, detail="You don't have permission to view this job")
-
+    """Get job details (all authenticated users can view)."""
     job_service = JobService(db)
 
     try:
@@ -177,7 +172,7 @@ async def delete_job_endpoint(
 async def hard_delete_job_endpoint(
     job_id: str,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Hard delete a job and all related data.
 
@@ -191,17 +186,17 @@ async def hard_delete_job_endpoint(
     - All JobWorker records
     - All Payment records
 
-    Only admin users can perform hard delete.
+    Users can only delete their own jobs.
     """
     from ..db.jobs import hard_delete_job
 
-    # Verify job belongs to current admin's agents
+    # Verify job belongs to current user's agents
     job = job_dal.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_admin.user_id:
+    if not employer or employer.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this job")
 
     success = hard_delete_job(db, job_id)
@@ -396,7 +391,7 @@ async def submit_bid_for_job_endpoint(
 async def get_job_bids_endpoint(
     job_id: str,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Get all bids for a specific job (only if job is owned by current user's agent)."""
     # 验证 job 属于当前用户
@@ -405,7 +400,7 @@ async def get_job_bids_endpoint(
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_admin.user_id:
+    if not employer or employer.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to view this job's bids")
 
     bid_service = BidService(db)
@@ -431,11 +426,11 @@ async def accept_bid_endpoint(
     job_id: str,
     bid_id: str,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Accept a worker's bid and hire them for the job.
 
-    Only the job owner (admin who owns the employer agent) can accept bids.
+    Only the job owner can accept bids.
     """
     # 验证 job 属于当前用户
     job = job_dal.get_job(db, job_id)
@@ -443,7 +438,7 @@ async def accept_bid_endpoint(
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_admin.user_id:
+    if not employer or employer.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to accept bids for this job")
 
     bid_service = BidService(db)
@@ -473,11 +468,11 @@ async def reject_bid_endpoint(
     bid_id: str,
     reason: str | None = None,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin_user)
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Reject a worker's bid.
 
-    Only the job owner (admin who owns the employer agent) can reject bids.
+    Only the job owner can reject bids.
     """
     # 验证 job 属于当前用户
     job = job_dal.get_job(db, job_id)
@@ -485,7 +480,7 @@ async def reject_bid_endpoint(
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     employer = agent_dal.get_agent(db, job.employer_id)
-    if not employer or employer.owner_id != current_admin.user_id:
+    if not employer or employer.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to reject bids for this job")
 
     bid_service = BidService(db)

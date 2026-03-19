@@ -106,9 +106,9 @@ async def sms_login(request: SMSLoginRequest):
         user = result.scalar_one_or_none()
 
         if not user:
-            # Auto-register new user
+            # Auto-register new user as regular user (not admin)
             is_new_user = True
-            user_id = f"admin_{secrets.token_hex(8)}"
+            user_id = f"user_{secrets.token_hex(8)}"
             username = generate_username_from_phone(request.phone)
 
             user = AdminUser(
@@ -116,13 +116,13 @@ async def sms_login(request: SMSLoginRequest):
                 username=username,
                 phone=request.phone,
                 phone_verified=True,
-                role="admin",
+                role="user",  # SMS registered users are regular users, not admins
                 status=True,
             )
             db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info(f"New admin user registered: {user_id} via phone {request.phone[:3]}****{request.phone[-4:]}")
+            logger.info(f"New user registered: {user_id} via phone {request.phone[:3]}****{request.phone[-4:]}")
         else:
             # Update phone verified status
             if not user.phone_verified:
