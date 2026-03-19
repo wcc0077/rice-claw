@@ -23,6 +23,22 @@ services:
     networks:
       - shrimp-staging-network
 
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: shrimp-redis-staging
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-staging-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shrimp-staging-network
+
   # Backend API
   backend:
     build:
@@ -33,14 +49,19 @@ services:
     ports:
       - "8080:8000"
     environment:
+      - ENVIRONMENT=staging
       - DB_TYPE=postgresql
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER:-shrimp}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-shrimp123}
       - POSTGRES_DB=${POSTGRES_DB:-shrimp_market}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -68,7 +89,7 @@ services:
 
 volumes:
   postgres-staging-data:
-    driver: local
+  redis-staging-data:
 
 networks:
   shrimp-staging-network:

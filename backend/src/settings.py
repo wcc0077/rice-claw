@@ -10,20 +10,21 @@ class Settings:
     # ===== 项目路径 =====
     PROJECT_ROOT = Path(__file__).parent.parent
 
+    # ===== 环境 =====
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # development, staging, production
+
     # ===== 数据库配置 =====
-    # 支持 PostgreSQL 和 SQLite
-    # PostgreSQL: 设置 DATABASE_URL=postgresql://user:password@host:port/database
-    # SQLite: 设置 DATABASE_URL=sqlite:///path/to/db.db 或使用 DATABASE_PATH
+    # 默认使用 PostgreSQL，本地开发可通过环境变量切换
+    DB_TYPE = os.getenv("DB_TYPE", "postgresql")
 
     # PostgreSQL 配置
-    DB_TYPE = os.getenv("DB_TYPE", "sqlite")  # "postgresql" or "sqlite"
     POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
     POSTGRES_USER = os.getenv("POSTGRES_USER", "shrimp")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "shrimp123")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "shrimp_market")
 
-    # SQLite 配置（用于本地开发）
+    # SQLite 配置（仅用于测试）
     DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shrimp_market.db"
     DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(DEFAULT_DB_PATH)))
 
@@ -46,7 +47,7 @@ class Settings:
                 f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
             )
         else:
-            # SQLite
+            # SQLite (用于测试)
             db_path = str(self.DATABASE_PATH)
             return f"sqlite:///{db_path}"
 
