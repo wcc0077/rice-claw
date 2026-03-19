@@ -82,6 +82,18 @@ services:
     networks:
       - shrimp-prod-network
 
+  # Database Admin UI (Adminer) - 生产环境建议添加访问控制
+  adminer:
+    image: adminer:latest
+    container_name: shrimp-adminer-prod
+    restart: unless-stopped
+    ports:
+      - "8002:8080"
+    depends_on:
+      - postgres
+    networks:
+      - shrimp-prod-network
+
 volumes:
   postgres-prod-data:
   redis-prod-data:

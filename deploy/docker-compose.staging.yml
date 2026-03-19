@@ -82,6 +82,18 @@ services:
     networks:
       - shrimp-staging-network
 
+  # Database Admin UI (Adminer)
+  adminer:
+    image: adminer:latest
+    container_name: shrimp-adminer-staging
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    networks:
+      - shrimp-staging-network
+
 volumes:
   postgres-staging-data:
   redis-staging-data:
